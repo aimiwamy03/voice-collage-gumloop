@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice → Collage (prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#e9e5dc; --ink:#141414; --dim:#6b675f; --paper:#f4f1ea; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--ink); font-family:'IBM Plex Mono', ui-monospace, monospace; }
+  body { min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:20px 14px 40px; }
+  header { width:100%; max-width:560px; display:flex; justify-content:space-between; align-items:baseline; font-size:12px; letter-spacing:.08em; color:var(--dim); text-transform:uppercase; margin-bottom:12px; }
+  .stage { position:relative; width:100%; max-width:560px; aspect-ratio:4/5; background:var(--paper); box-shadow:0 1px 0 rgba(0,0,0,.05), 0 18px 40px rgba(0,0,0,.14); }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:28px; gap:16px; background:rgba(244,241,234,.92); transition:opacity .4s; }
+  .overlay.hidden { opacity:0; pointer-events:none; }
+  .title { font-family:'Instrument Serif', serif; font-size:clamp(34px,8vw,52px); line-height:1.02; margin:0; }
+  .title em { font-style:italic; }
+  .sub { font-size:13px; line-height:1.6; color:var(--dim); max-width:360px; margin:0; }
+  button, .btn { font:inherit; font-size:13px; letter-spacing:.08em; text-transform:uppercase; border:1px solid var(--ink); background:var(--ink); color:var(--paper); padding:13px 20px; cursor:pointer; min-width:230px; }
+  button.ghost, .btn.ghost { background:transparent; color:var(--ink); }
+  button:disabled { opacity:.4; cursor:default; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .hud { width:100%; max-width:560px; display:flex; align-items:center; gap:14px; margin-top:14px; min-height:44px; font-size:12px; color:var(--dim); }
+  .ring { width:40px; height:40px; flex:none; }
+  .meter { flex:1; height:6px; background:rgba(0,0,0,.08); position:relative; overflow:hidden; }
+  .meter i { position:absolute; left:0; top:0; bottom:0; width:0; background:var(--ink); transition:width .05s linear; }
+  .meter b { position:absolute; top:-3px; bottom:-3px; width:1px; background:#b3261e; left:0; }
+  .status { min-width:110px; text-align:right; }
+  .msg { font-size:12px; color:#b3261e; max-width:360px; line-height:1.5; margin:0; }
+  .after { width:100%; max-width:560px; display:none; gap:10px; margin-top:14px; justify-content:center; flex-wrap:wrap; }
+  .after.show { display:flex; }
+  .saveview { position:fixed; inset:0; background:rgba(20,20,20,.88); display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:20px; z-index:10; }
+  .saveview.show { display:flex; }
+  .saveview img { max-width:min(92vw,520px); max-height:72vh; box-shadow:0 10px 40px rgba(0,0,0,.5); }
+  .saveview p { color:#eee; font-size:12px; letter-spacing:.06em; margin:0; text-align:center; }
+  .saveview button { background:var(--paper); color:var(--ink); border-color:var(--paper); }
+  input[type=file] { display:none; }
+  .link { background:none; border:none; color:var(--dim); text-transform:none; letter-spacing:0; padding:4px; min-width:0; text-decoration:underline; font-size:12px; }
+  .keypanel { display:none; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:340px; }
+  .keypanel.show { display:flex; }
+  .keypanel input { font:inherit; font-size:13px; width:100%; padding:11px 12px; border:1px solid var(--ink); background:#fff; }
+  .keypanel .row button { min-width:0; padding:10px 16px; }
+  .words { font-size:11px; letter-spacing:.06em; text-transform:uppercase; }
+  footer { margin-top:22px; font-size:11px; color:var(--dim); max-width:560px; line-height:1.6; text-align:center; }
+</style>
+</head>
+<body>
+<header><span>voice → collage</span><span id="noLabel">No. 001</span></header>
+
+<div class="stage" id="stage">
+  <canvas id="cv" width="1200" height="1500"></canvas>
+  <div class="overlay" id="intro">
+    <p class="title">Say anything,<br><em>in any language.</em></p>
+    <p class="sub">Your voice tears paper. Louder makes bigger pieces, higher voices float to the top, a long held sound tears a long strip. Silence glues it down.</p>
+    <div class="row" style="flex-direction:column;align-items:center">
+      <button id="micBtn">Use microphone</button>
+      <label class="btn ghost" for="fileIn">Use a voice recording</label>
+      <input id="fileIn" type="file" accept="audio/*,video/*">
+      <button id="playFile" style="display:none">Tear with <span id="fileName">recording</span></button>
+    </div>
+    <button class="link" id="keyToggle">Words: off · add Deepgram key</button>
+    <div class="keypanel" id="keyPanel">
+      <input id="keyIn" type="password" autocomplete="off" placeholder="Paste your Deepgram API key">
+      <div class="row"><button id="keySave">Save key</button><button class="ghost" id="keyClear">Remove</button></div>
+      <p class="sub" style="font-size:11px">Saved only in this browser on this device. It is never put in the page's code.</p>
+    </div>
+    <p class="msg" id="msg"></p>
+  </div>
+</div>
+
+<div class="hud" id="hud">
+  <svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="none" stroke="rgba(0,0,0,.1)" stroke-width="3"/><circle id="ringFg" cx="20" cy="20" r="17" fill="none" stroke="#141414" stroke-width="3" stroke-dasharray="106.8" stroke-dashoffset="106.8" transform="rotate(-90 20 20)"/></svg>
+  <div class="meter"><i id="lvl"></i><b id="gateMark"></b></div>
+  <div class="status" id="status">ready</div>
+</div>
+<div class="hud" style="margin-top:2px;min-height:0">
+  <span class="words" id="wordsStatus"></span><span style="flex:1"></span><span class="words" id="heard"></span>
+</div>
+
+<div class="after" id="after">
+  <button id="saveBtn">Save image</button>
+  <button class="ghost" id="againBtn">Again</button>
+</div>
+
+<div class="saveview" id="saveview">
+  <img id="saveImg" alt="Your collage">
+  <p id="saveHint">Long-press (phone) or right-click (laptop) the image to save it.</p>
+  <div class="row"><a class="btn" id="dlLink" download="collage.png" style="text-decoration:none;text-align:center;display:none">Download PNG</a><button id="closeSave">Close</button></div>
+</div>
+
+<footer>Prototype 2 · volume → size · pitch → height &amp; lightness · held sound → long strip · words → cut-out letters · silence → glue.<br>Material: Aimi's paintings and Ilford stills.</footer>
+
+<script>
+const SOURCES = /*SOURCES*/;
+
+// ---------- setup ----------
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const $ = id => document.getElementById(id);
+const SESSION_MS = 15000;
+
+let collageNo = 1;
+try { collageNo = parseInt(localStorage.getItem('vc_no') || '1', 10) || 1; } catch(e) {}
+const pad3 = n => String(n).padStart(3,'0');
+$('noLabel').textContent = 'No. ' + pad3(collageNo);
+
+// seeded-ish random helpers
+const rnd = (a=1,b) => b===undefined ? Math.random()*a : a + Math.random()*(b-a);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const lerp = (a,b,t) => a + (b-a)*t;
+
+// ---------- paper background ----------
+const paperLayer = document.createElement('canvas'); paperLayer.width = W; paperLayer.height = H;
+const settled = document.createElement('canvas'); settled.width = W; settled.height = H;
+const sctx = settled.getContext('2d');
+const wordsLayer = document.createElement('canvas'); wordsLayer.width = W; wordsLayer.height = H;
+const wctx = wordsLayer.getContext('2d');
+function makeGrain(w, h, amt) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); const id = g.createImageData(w, h);
+  for (let i = 0; i < id.data.length; i += 4) {
+    const v = 128 + (Math.random() - .5) * amt;
+    id.data[i] = id.data[i+1] = id.data[i+2] = v; id.data[i+3] = 255;
+  }
+  g.putImageData(id, 0, 0); return c;
+}
+const grain = makeGrain(300, 300, 60);
+function paintPaper() {
+  const p = paperLayer.getContext('2d');
+  p.fillStyle = '#f4f1ea'; p.fillRect(0,0,W,H);
+  p.globalAlpha = .07; p.globalCompositeOperation = 'multiply';
+  for (let y = 0; y < H; y += 300) for (let x = 0; x < W; x += 300) p.drawImage(grain, x, y);
+  p.globalAlpha = 1; p.globalCompositeOperation = 'source-over';
+  // soft vignette
+  const vg = p.createRadialGradient(W/2, H/2, W*0.35, W/2, H/2, W*0.95);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(60,45,20,0.10)');
+  p.fillStyle = vg; p.fillRect(0,0,W,H);
+}
+paintPaper();
+
+// ---------- sources ----------
+const sources = [];
+async function loadSources() {
+  await Promise.all(Object.entries(SOURCES).map(([name, url]) => new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      // tiny luminance map for fast crop scoring
+      const mw = 48, mh = Math.max(4, Math.round(48 * img.height / img.width));
+      const c = document.createElement('canvas'); c.width = mw; c.height = mh;
+      const g = c.getContext('2d'); g.drawImage(img, 0, 0, mw, mh);
+      const d = g.getImageData(0, 0, mw, mh).data; const lum = new Float32Array(mw*mh);
+      for (let i = 0; i < mw*mh; i++) lum[i] = (0.299*d[i*4] + 0.587*d[i*4+1] + 0.114*d[i*4+2]) / 255;
+      sources.push({ name, img, lum, mw, mh, weight: (img.width*img.height) > 300000 ? 3 : 1 });
+      res();
+    };
+    img.onerror = res; img.src = url;
+  })));
+}
+function pickSource() {
+  const total = sources.reduce((s, x) => s + x.weight, 0); let r = Math.random() * total;
+  for (const s of sources) { if ((r -= s.weight) <= 0) return s; } return sources[0];
+}
+function cropLum(s, x, y, w, h) {
+  const x0 = Math.floor(x / s.img.width * s.mw), y0 = Math.floor(y / s.img.height * s.mh);
+  const x1 = Math.max(x0+1, Math.ceil((x+w) / s.img.width * s.mw)), y1 = Math.max(y0+1, Math.ceil((y+h) / s.img.height * s.mh));
+  let sum = 0, n = 0;
+  for (let j = y0; j < Math.min(y1, s.mh); j++) for (let i = x0; i < Math.min(x1, s.mw); i++) { sum += s.lum[j*s.mw+i]; n++; }
+  return n ? sum / n : .5;
+}
+// choose a crop whose brightness is close to target (0 dark .. 1 light)
+function pickCrop(aspect, targetLum, outW) {
+  let best = null, bestD = 1e9;
+  for (let k = 0; k < 10; k++) {
+    let s = pickSource();
+    if (s.img.width < outW * 1.2 && k < 9) { s = sources.reduce((a, b) => b.img.width > a.img.width ? b : a); if (Math.random() < .5) continue; }
+    const maxW = s.img.width, maxH = s.img.height;
+    let cw = rnd(.18, .6) * maxW, ch = cw / aspect;
+    if (ch > maxH * .95) { ch = maxH * rnd(.4, .95); cw = ch * aspect; }
+    cw = Math.min(cw, maxW); ch = Math.min(ch, maxH);
+    const cx = rnd(0, maxW - cw), cy = rnd(0, maxH - ch);
+    const L = cropLum(s, cx, cy, cw, ch);
+    const d = Math.abs(L - targetLum) + Math.random() * .08;
+    if (d < bestD) { bestD = d; best = { s, cx, cy, cw, ch }; }
+  }
+  return best;
+}
+
+// ---------- torn scrap rendering ----------
+function edgePoints(x0, y0, x1, y1, torn, step, amp = 5.5) {
+  // points along an edge (excluding end), with perpendicular jitter if torn
+  const len = Math.hypot(x1-x0, y1-y0), n = Math.max(2, Math.round(len / step));
+  const nx = -(y1-y0)/len, ny = (x1-x0)/len; const pts = []; let walk = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / n;
+    let off = 0;
+    if (torn) { walk = walk * .6 + rnd(-1, 1) * amp; off = walk + rnd(-amp*.3, amp*.3); }
+    else off = rnd(-.5, .5);
+    pts.push([lerp(x0, x1, t) + nx*off, lerp(y0, y1, t) + ny*off]);
+  }
+  return pts;
+}
+function tornPolygon(w, h, tornSides, amp = 5.5, step = 7) {
+  const c = [[0,0],[w,0],[w,h],[0,h]];
+  // slightly irregular corners for hand-cut feel
+  const cc = c.map(([x,y]) => [x + rnd(-w*.03, w*.03), y + rnd(-h*.03, h*.03)]);
+  let pts = [];
+  for (let i = 0; i < 4; i++) { const a = cc[i], b = cc[(i+1)%4]; pts = pts.concat(edgePoints(a[0], a[1], b[0], b[1], tornSides[i], step, amp)); }
+  return pts;
+}
+function pathPoly(g, pts, dx=0, dy=0, sc=1, cx=0, cy=0) {
+  g.beginPath();
+  pts.forEach(([x,y], i) => { const X = cx + (x-cx)*sc + dx, Y = cy + (y-cy)*sc + dy; i ? g.lineTo(X,Y) : g.moveTo(X,Y); });
+  g.closePath();
+}
+function makeScrap(w, h, targetLum) {
+  w = Math.round(w); h = Math.round(h);
+  const padPx = 16; const c = document.createElement('canvas'); c.width = w + padPx*2; c.height = h + padPx*2;
+  const g = c.getContext('2d'); g.translate(padPx, padPx);
+  const tornSides = [0,1,2,3].map(() => Math.random() < .55);
+  if (!tornSides.some(Boolean)) tornSides[Math.floor(rnd(4))] = true;
+  const poly = tornPolygon(w, h, tornSides);
+  // white fibrous torn edge underneath
+  g.fillStyle = '#fbf8f0';
+  pathPoly(g, poly.map(([x,y]) => [x + rnd(-2.5,2.5), y + rnd(-2.5,2.5)]), 0, 0, 1.025, w/2, h/2); g.fill();
+  // image clipped to the polygon
+  const crop = pickCrop(w / h, targetLum, w);
+  g.save(); pathPoly(g, poly, 0, 0, .985, w/2, h/2); g.clip();
+  g.fillStyle = '#efe9dd'; g.fillRect(-4, -4, w+8, h+8);
+  if (crop) g.drawImage(crop.s.img, crop.cx, crop.cy, crop.cw, crop.ch, 0, 0, w, h);
+  // paper grain + slight warm aging
+  g.globalCompositeOperation = 'multiply'; g.globalAlpha = .18;
+  g.drawImage(grain, rnd(0,100), rnd(0,100), 200, 200, 0, 0, w, h);
+  g.globalAlpha = .06; g.fillStyle = '#c9a66b'; g.fillRect(0, 0, w, h);
+  g.restore();
+  return { canvas: c, pad: padPx, w, h, src: crop ? crop.s.name : '' };
+}
+
+// ---------- scraps on the page ----------
+let scraps = [];   // animating
+let placedCount = 0;
+function pushScrap(s, x, y, rot, dur = 380) {
+  scraps.push({ ...s, x, y, rot, t0: performance.now(), dur });
+}
+function addScrap({ x, y, w, h, rot, lum }) {
+  pushScrap(makeScrap(w, h, lum), x, y, rot);
+  placedCount++;
+}
+function drawScrap(g, s, k) {
+  // k: 0..1 animation progress
+  const e = 1 - Math.pow(1 - k, 3);
+  const scale = lerp(1.22, 1, e), lift = lerp(-26, 0, e);
+  g.save();
+  g.translate(s.x, s.y + lift); g.rotate(s.rot); g.scale(scale, scale);
+  g.shadowColor = `rgba(40,30,15,${lerp(.18,.32,e)})`;
+  g.shadowBlur = lerp(34, 7, e); g.shadowOffsetX = lerp(10, 2.5, e); g.shadowOffsetY = lerp(22, 4, e);
+  g.globalAlpha = Math.min(1, k * 3);
+  g.drawImage(s.canvas, -s.w/2 - s.pad, -s.h/2 - s.pad);
+  g.restore();
+}
+function render() {
+  const now = performance.now();
+  scraps = scraps.filter(s => {
+    const k = clamp((now - s.t0) / s.dur, 0, 1);
+    if (k >= 1) { drawScrap(s.word ? wctx : sctx, s, 1); return false; }
+    return true;
+  });
+  ctx.drawImage(paperLayer, 0, 0);
+  ctx.drawImage(settled, 0, 0);
+  for (const s of scraps) if (!s.word) drawScrap(ctx, s, clamp((now - s.t0) / s.dur, 0, 1));
+  ctx.drawImage(wordsLayer, 0, 0);
+  for (const s of scraps) if (s.word) drawScrap(ctx, s, clamp((now - s.t0) / s.dur, 0, 1));
+}
+
+// ---------- cut-out words ----------
+const LETTER_STYLES = [
+  { font: '"Instrument Serif", "Songti SC", "Noto Serif", Georgia, serif', bg: '#fbf8f0', fg: '#141414' },
+  { font: 'italic "Instrument Serif", "Songti SC", Georgia, serif', bg: '#efe3c8', fg: '#2a1d10' },
+  { font: '600 "IBM Plex Mono", "PingFang SC", "Apple SD Gothic Neo", monospace', bg: '#141414', fg: '#f4f1ea' },
+  { font: '900 "Arial Black", "Helvetica Neue", "PingFang SC", "Apple SD Gothic Neo", sans-serif', bg: '#f4f1ea', fg: '#1f2e8c' },
+  { font: '700 Georgia, "Times New Roman", "Songti SC", serif', bg: '#d9d3c4', fg: '#141414' },
+  { font: '800 "Helvetica Neue", Arial, "PingFang SC", "Apple SD Gothic Neo", sans-serif', bg: '#c0262d', fg: '#fbf8f0' },
+  { font: '"Courier New", "IBM Plex Mono", monospace', bg: '#fbf8f0', fg: '#141414' },
+];
+const SHAPED = /[֐-ࣿऀ-෿฀-໿က-႟ក-៿]/; // scripts that must not be split
+function graphemes(t) {
+  try { return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(t)].map(x => x.segment); }
+  catch (e) { return Array.from(t); }
+}
+function makeWord(text, size) {
+  const units = SHAPED.test(text) ? [text] : graphemes(text);
+  const tmp = document.createElement('canvas').getContext('2d');
+  const tiles = units.map(u => {
+    const st = LETTER_STYLES[Math.floor(rnd(LETTER_STYLES.length))];
+    const fs = size * rnd(.82, 1.22);
+    const font = st.font.replace(/^((?:italic\s+)?(?:\d{3}\s+)?)/, `$1${Math.round(fs)}px `);
+    tmp.font = font;
+    const tw = Math.max(tmp.measureText(u).width, fs * .35);
+    return { u, st, fs, font, w: tw + fs * .34, h: fs * 1.3, rot: rnd(-.12, .12), dy: rnd(-fs * .12, fs * .12) };
+  });
+  const gap = size * .06;
+  const W2 = tiles.reduce((a, t) => a + t.w + gap, 0) + 30, H2 = Math.max(...tiles.map(t => t.h)) + size * .5 + 30;
+  const c = document.createElement('canvas'); c.width = Math.ceil(W2); c.height = Math.ceil(H2);
+  const g = c.getContext('2d');
+  let x = 15;
+  for (const t of tiles) {
+    g.save(); g.translate(x + t.w / 2, H2 / 2 + t.dy); g.rotate(t.rot);
+    g.shadowColor = 'rgba(40,30,15,.22)'; g.shadowBlur = 3; g.shadowOffsetY = 1.5;
+    const poly = tornPolygon(t.w, t.h, [0,1,2,3].map(() => Math.random() < .35), 1.6, 5);
+    pathPoly(g, poly, -t.w / 2, -t.h / 2); g.fillStyle = t.st.bg; g.fill();
+    g.shadowColor = 'transparent';
+    g.globalCompositeOperation = 'multiply'; g.globalAlpha = .12;
+    g.save(); pathPoly(g, poly, -t.w / 2, -t.h / 2); g.clip(); g.drawImage(grain, -t.w / 2, -t.h / 2, t.w, t.h); g.restore();
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+    g.font = t.font; g.fillStyle = t.st.fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(t.u, 0, t.fs * .04);
+    g.restore();
+    x += t.w + gap;
+  }
+  return { canvas: c, pad: 0, w: c.width, h: c.height };
+}
+let wordsPlaced = 0, lastLoud = .4, wordRects = [];
+const heardLangs = new Map();
+function placeWord(text, lang) {
+  text = (text || '').trim(); if (!text) return;
+  if (lang) heardLangs.set(lang, (heardLangs.get(lang) || 0) + 1);
+  if (wordsPlaced >= 28) return;
+  const size = lerp(40, 92, lastLoud) * (wordsPlaced > 14 ? .8 : 1);
+  const s = makeWord(text, size);
+  if (s.w > W * .9) { const k = (W * .9) / s.w; const c2 = document.createElement('canvas'); c2.width = s.w * k; c2.height = s.h * k; c2.getContext('2d').drawImage(s.canvas, 0, 0, c2.width, c2.height); s.canvas = c2; s.w = c2.width; s.h = c2.height; }
+  // try a few spots near the cluster and take the one that overlaps earlier words least
+  let best = null, bestO = Infinity;
+  for (let k = 0; k < 14; k++) {
+    const cx = clamp(cluster.x + rnd(-300, 300), s.w / 2 + 30, W - s.w / 2 - 30);
+    const cy = clamp(cluster.y + rnd(-320, 320), s.h / 2 + 40, H - s.h / 2 - 140);
+    let o = 0;
+    for (const r of wordRects) {
+      const ix = Math.max(0, Math.min(cx + s.w/2, r.x + r.w/2) - Math.max(cx - s.w/2, r.x - r.w/2));
+      const iy = Math.max(0, Math.min(cy + s.h/2, r.y + r.h/2) - Math.max(cy - s.h/2, r.y - r.h/2));
+      o += ix * iy;
+    }
+    o += Math.hypot(cx - cluster.x, cy - cluster.y) * 2; // stay near the gesture
+    if (o < bestO) { bestO = o; best = [cx, cy]; }
+  }
+  const [x, y] = best;
+  wordRects.push({ x, y, w: s.w * .8, h: s.h * .7 });
+  s.word = true; pushScrap(s, x, y, rnd(-.14, .14), 460);
+  wordsPlaced++;
+  $('heard').textContent = '“' + text + '”';
+}
+function langNames() {
+  const codes = [...heardLangs.entries()].sort((a, b) => b[1] - a[1]).map(x => x[0].split('-')[0]);
+  const uniq = [...new Set(codes)];
+  let dn = null; try { dn = new Intl.DisplayNames(['en'], { type: 'language' }); } catch (e) {}
+  return uniq.slice(0, 3).map(c => (dn && dn.of(c)) || c);
+}
+
+// ---------- Deepgram (live words) ----------
+let dgKey = ''; try { dgKey = localStorage.getItem('vc_dg') || ''; } catch (e) {}
+let dg = null, dgTap = null, dgMute = null, pcmBuf = [], pcmLen = 0, dgSR = 48000, dgSendTimer = null;
+function setWordsStatus(t) { $('wordsStatus').textContent = t; }
+function refreshKeyUI() {
+  $('keyToggle').textContent = dgKey ? 'Words: on · change Deepgram key' : 'Words: off · add Deepgram key';
+  setWordsStatus(dgKey ? 'words: ready' : 'words: off (no key)');
+}
+async function dgStart(sourceNode) {
+  if (!dgKey) return;
+  dgSR = audioCtx.sampleRate; pcmBuf = []; pcmLen = 0;
+  const url = 'wss://api.deepgram.com/v1/listen?model=nova-3&language=multi&interim_results=true&endpointing=250&encoding=linear16&sample_rate=16000&channels=1';
+  try { dg = new WebSocket(url, ['token', dgKey]); } catch (e) { dg = null; setWordsStatus('words: could not connect'); return; }
+  dg.binaryType = 'arraybuffer';
+  setWordsStatus('words: connecting…');
+  dg.onopen = () => setWordsStatus('words: listening');
+  dg.onerror = () => setWordsStatus('words: connection failed (check key / wifi)');
+  dg.onmessage = ev => {
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.type !== 'Results' || !m.is_final) return;
+    const alt = m.channel && m.channel.alternatives && m.channel.alternatives[0]; if (!alt) return;
+    const fallbackLang = (alt.languages && alt.languages[0]) || null;
+    for (const w of (alt.words || [])) placeWord(w.punctuated_word || w.word, w.language || fallbackLang);
+  };
+  // tap raw audio
+  try {
+    const code = "class T extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('pcm-tap',T)";
+    await audioCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], { type: 'application/javascript' })));
+    dgTap = new AudioWorkletNode(audioCtx, 'pcm-tap');
+    dgTap.port.onmessage = e => { pcmBuf.push(e.data); pcmLen += e.data.length; };
+  } catch (e) {
+    dgTap = audioCtx.createScriptProcessor(4096, 1, 1);
+    dgTap.onaudioprocess = e => { const d = e.inputBuffer.getChannelData(0).slice(0); pcmBuf.push(d); pcmLen += d.length; };
+  }
+  dgMute = audioCtx.createGain(); dgMute.gain.value = 0;
+  sourceNode.connect(dgTap); dgTap.connect(dgMute); dgMute.connect(audioCtx.destination);
+  dgSendTimer = setInterval(dgFlush, 100);
+}
+function dgFlush() {
+  if (!pcmLen) return;
+  const all = new Float32Array(pcmLen); let o = 0; for (const b of pcmBuf) { all.set(b, o); o += b.length; }
+  pcmBuf = []; pcmLen = 0;
+  if (!dg || dg.readyState !== 1) return;
+  const ratio = dgSR / 16000, n = Math.floor(all.length / ratio), out = new Int16Array(n);
+  for (let i = 0; i < n; i++) { const v = all[Math.floor(i * ratio)]; out[i] = Math.max(-1, Math.min(1, v)) * 0x7fff; }
+  dg.send(out.buffer);
+}
+async function dgStop() {
+  if (dgSendTimer) { clearInterval(dgSendTimer); dgSendTimer = null; }
+  try { dgTap && dgTap.disconnect(); dgMute && dgMute.disconnect(); } catch (e) {}
+  if (!dg) return;
+  dgFlush();
+  const sock = dg; dg = null;
+  if (sock.readyState === 1) {
+    try { sock.send(JSON.stringify({ type: 'CloseStream' })); } catch (e) {}
+    await new Promise(r => { const t = setTimeout(r, 1800); sock.addEventListener('close', () => { clearTimeout(t); r(); }); });
+  }
+  try { sock.close(); } catch (e) {}
+}
+
+// ---------- audio analysis ----------
+let audioCtx, analyser, buf, srcNode, mediaStream, mediaEl;
+let gate = 0.02, floor = 0.01;
+function rmsOf(b) { let s = 0; for (let i = 0; i < b.length; i++) s += b[i]*b[i]; return Math.sqrt(s / b.length); }
+// autocorrelation pitch (Hz) or -1
+function pitchOf(b, sr) {
+  let SIZE = b.length, r1 = 0, r2 = SIZE - 1, thres = 0.2;
+  for (let i = 0; i < SIZE/2; i++) if (Math.abs(b[i]) < thres) { r1 = i; break; }
+  for (let i = 1; i < SIZE/2; i++) if (Math.abs(b[SIZE-i]) < thres) { r2 = SIZE - i; break; }
+  const x = b.slice(r1, r2); SIZE = x.length; if (SIZE < 256) return -1;
+  const minLag = Math.floor(sr / 900), maxLag = Math.min(SIZE - 1, Math.floor(sr / 65));
+  const c = new Float32Array(maxLag + 1);
+  for (let lag = 0; lag <= maxLag; lag++) { let s = 0; for (let i = 0; i < SIZE - lag; i++) s += x[i] * x[i+lag]; c[lag] = s; }
+  let d = minLag; while (d < maxLag && c[d] > c[d+1]) d++;
+  let maxv = -1, maxpos = -1;
+  for (let i = d; i <= maxLag; i++) if (c[i] > maxv) { maxv = c[i]; maxpos = i; }
+  if (maxpos <= 0 || maxv < c[0] * 0.3) return -1;
+  let T0 = maxpos; const a = c[T0-1] || 0, bb = c[T0], cc = c[T0+1] || 0;
+  const A = (a + cc - 2*bb) / 2, B = (cc - a) / 2; if (A) T0 = T0 - B / (2*A);
+  return sr / T0;
+}
+
+// ---------- session state ----------
+let state = 'idle', tStart = 0, voicedMs = 0, runStart = 0, lastSpawn = 0, lastT = 0;
+let pitchHist = [], lastPitch = 180, totalVoiced = 0, endTimer = null, sessionMs = SESSION_MS;
+
+function resetCanvas() {
+  sctx.clearRect(0,0,W,H); wctx.clearRect(0,0,W,H); scraps = []; placedCount = 0; totalVoiced = 0; wordsPlaced = 0; wordRects = []; heardLangs.clear(); $('heard').textContent = '';
+}
+function setStatus(s) { $('status').textContent = s; }
+function setRing(f) { $('ringFg').setAttribute('stroke-dashoffset', String(106.8 * (1 - clamp(f,0,1)))); }
+
+async function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+  analyser = audioCtx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0;
+  buf = new Float32Array(analyser.fftSize);
+}
+
+async function startMic() {
+  $('msg').textContent = '';
+  try {
+    await ensureAudio();
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: false } });
+  } catch (e) {
+    $('msg').textContent = 'The microphone isn’t available here. Open this page as a file on your laptop in Chrome, or tap “Use a voice recording”: on a phone you can choose Take Video, speak, and use it.';
+    return;
+  }
+  srcNode = audioCtx.createMediaStreamSource(mediaStream); srcNode.connect(analyser);
+  await dgStart(srcNode);
+  sessionMs = SESSION_MS;
+  begin(true);
+}
+
+async function startFile(file) {
+  $('msg').textContent = '';
+  await ensureAudio();
+  if (mediaEl) { mediaEl.pause(); mediaEl.remove(); }
+  mediaEl = document.createElement('video'); mediaEl.src = URL.createObjectURL(file); mediaEl.playsInline = true; mediaEl.setAttribute('playsinline','');
+  document.body.appendChild(mediaEl); mediaEl.style.display = 'none';
+  srcNode = audioCtx.createMediaElementSource(mediaEl);
+  srcNode.connect(analyser); analyser.connect(audioCtx.destination);
+  await dgStart(srcNode);
+  try { await mediaEl.play(); } catch (e) { $('msg').textContent = 'Couldn’t play that file. Try another recording.'; return; }
+  const dur = isFinite(mediaEl.duration) ? mediaEl.duration * 1000 : 20000;
+  sessionMs = Math.min(dur, 30000);
+  mediaEl.onended = () => finish();
+  begin(false);
+}
+
+function begin(calibrate) {
+  resetCanvas();
+  $('intro').classList.add('hidden'); $('after').classList.remove('show');
+  floor = 0.008; gate = 0.02;
+  if (calibrate) {
+    state = 'calibrating'; setStatus('quiet… listening'); const samples = []; const t0 = performance.now();
+    const cal = () => {
+      analyser.getFloatTimeDomainData(buf); samples.push(rmsOf(buf));
+      showLevel(samples[samples.length-1]);
+      if (performance.now() - t0 < 1200) return requestAnimationFrame(cal);
+      samples.sort((a,b) => a-b); floor = samples[Math.floor(samples.length * .6)] || .008;
+      gate = Math.max(0.012, floor * 2.4);
+      go();
+    };
+    cal();
+  } else go();
+}
+function go() {
+  state = 'listening'; tStart = performance.now(); lastT = tStart; runStart = 0; voicedMs = 0; lastSpawn = 0;
+  setStatus('speak'); loop();
+}
+function showLevel(r) {
+  $('lvl').style.width = (clamp(r / 0.25, 0, 1) * 100) + '%';
+  $('gateMark').style.left = (clamp(gate / 0.25, 0, 1) * 100) + '%';
+}
+
+function loop() {
+  if (state !== 'listening') return;
+  const now = performance.now(), dt = now - lastT; lastT = now;
+  analyser.getFloatTimeDomainData(buf);
+  const r = rmsOf(buf);
+  showLevel(r);
+  // adaptive noise floor (only drifts while quiet)
+  if (r < gate) { floor = floor * .995 + r * .005; gate = Math.max(0.012, floor * 2.4); }
+  const voiced = r > gate;
+  lastLoud = lastLoud * .9 + clamp((r - gate) / (0.22 - gate), 0, 1) * .1;
+  if (voiced) {
+    const p = pitchOf(buf, audioCtx.sampleRate);
+    if (p > 65 && p < 900) { pitchHist.push(p); if (pitchHist.length > 7) pitchHist.shift(); }
+    const sorted = [...pitchHist].sort((a,b) => a-b); if (sorted.length) lastPitch = sorted[Math.floor(sorted.length/2)];
+    if (!runStart) runStart = now;
+    voicedMs = now - runStart; totalVoiced += dt;
+    spawnFrom(r, lastPitch, voicedMs, now);
+    setStatus('tearing…');
+  } else {
+    if (runStart && voicedMs > 650) placeStrip(lastPitch, voicedMs, r); // close a held sound with a long strip
+    runStart = 0; voicedMs = 0;
+    setStatus('listening');
+  }
+  const f = (now - tStart) / sessionMs; setRing(f);
+  if (f >= 1) return finish();
+  requestAnimationFrame(loop);
+}
+
+// pitch -> 0 (low) .. 1 (high), log scale 80..500 Hz
+const pitchNorm = p => clamp((Math.log(p) - Math.log(80)) / (Math.log(500) - Math.log(80)), 0, 1);
+let cluster = { x: W/2, y: H/2 };
+function spawnFrom(r, pitch, held, now) {
+  const loud = clamp((r - gate) / (0.22 - gate), 0, 1);       // 0..1
+  const interval = lerp(230, 95, loud);
+  if (now - lastSpawn < interval) return;
+  lastSpawn = now;
+  if (held > 650) return; // held sounds become strips when they end
+  const pn = pitchNorm(pitch);
+  const area = lerp(70*70, 430*430, Math.pow(loud, 0.8)) * (placedCount > 90 ? .6 : 1);
+  const aspect = rnd(.55, 1.8); const w = Math.sqrt(area * aspect), h = area / w;
+  // drift a cluster so the composition has gesture, pitch pulls it up/down
+  const targetY = lerp(H * .86, H * .14, pn);
+  cluster.x = clamp(lerp(cluster.x, W/2, .12) + rnd(-170, 170), 180, W - 180);
+  cluster.y = lerp(cluster.y, targetY, .5) + rnd(-90, 90);
+  addScrap({ x: clamp(cluster.x + rnd(-60,60), w*.42 + 30, W - w*.42 - 30), y: clamp(cluster.y, h*.42 + 40, H - h*.42 - 130), w, h, rot: rnd(-.22, .22), lum: lerp(.18, .92, pn) });
+}
+function placeStrip(pitch, held, r) {
+  const pn = pitchNorm(pitch);
+  const len = clamp(lerp(380, 1150, (held - 650) / 2600), 300, 1150);
+  const th = rnd(46, 92);
+  addScrap({ x: clamp(cluster.x, len/2.6, W - len/2.6), y: lerp(H * .84, H * .16, pn) + rnd(-50, 50), w: len, h: th, rot: rnd(-.32, .32), lum: lerp(.2, .9, pn) });
+}
+
+async function finish() {
+  if (state !== 'listening') return;
+  state = 'settling'; setStatus('gluing…'); setRing(1);
+  if (mediaEl) { mediaEl.pause(); }
+  setStatus('gluing…'); await dgStop();
+  try { srcNode && srcNode.disconnect(); analyser && analyser.disconnect(); } catch (e) {}
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  if (placedCount === 0 && wordsPlaced === 0) {
+    // nothing heard: one quiet scrap so the page isn't empty
+    addScrap({ x: W/2, y: H/2, w: 260, h: 180, rot: rnd(-.1,.1), lum: .7 });
+  }
+  await new Promise(r => setTimeout(r, 700));
+  await drawCaption();
+  state = 'done'; setStatus('done'); showLevel(0); refreshKeyUI();
+  $('after').classList.add('show');
+  try { localStorage.setItem('vc_no', String(collageNo + 1)); } catch (e) {}
+}
+
+async function drawCaption() {
+  try { await document.fonts.load('22px "IBM Plex Mono"'); } catch (e) {}
+  // commit anything still animating
+  for (const s of scraps) drawScrap(s.word ? wctx : sctx, s, 1); scraps = [];
+  sctx.drawImage(wordsLayer, 0, 0); wctx.clearRect(0,0,W,H);
+  const secs = Math.round(totalVoiced / 1000);
+  const d = new Date();
+  const L = langNames();
+  const text = `No. ${pad3(collageNo)}.  ${L.length ? 'Spoken in ' + L.join(', ') + ',' : 'Spoken'} ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}.  San Francisco. ${d.getFullYear()}.`;
+  // caption on a small pasted label
+  sctx.save();
+  sctx.font = '22px "IBM Plex Mono", ui-monospace, monospace';
+  const tw = sctx.measureText(text).width;
+  const lw = tw + 44, lh = 56, lx = W - lw - 56, ly = H - lh - 52;
+  sctx.translate(lx + lw/2, ly + lh/2); sctx.rotate(-0.012);
+  sctx.shadowColor = 'rgba(40,30,15,.25)'; sctx.shadowBlur = 6; sctx.shadowOffsetY = 2;
+  sctx.fillStyle = '#fbf9f3'; sctx.fillRect(-lw/2, -lh/2, lw, lh);
+  sctx.shadowColor = 'transparent';
+  sctx.fillStyle = '#141414'; sctx.textBaseline = 'middle'; sctx.fillText(text, -lw/2 + 22, 1);
+  sctx.restore();
+}
+
+// ---------- save ----------
+function exportPNG() {
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const g = out.getContext('2d'); g.drawImage(paperLayer, 0, 0); g.drawImage(settled, 0, 0);
+  return out.toDataURL('image/png');
+}
+
+// ---------- wiring ----------
+$('micBtn').onclick = () => startMic();
+let pendingFile = null;
+$('fileIn').onchange = e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  pendingFile = f; $('fileName').textContent = f.name.length > 18 ? 'this recording' : f.name;
+  $('playFile').style.display = 'inline-block'; e.target.value = '';
+};
+$('playFile').onclick = () => { if (pendingFile) { $('playFile').style.display = 'none'; startFile(pendingFile); pendingFile = null; } };
+$('againBtn').onclick = () => {
+  collageNo++; $('noLabel').textContent = 'No. ' + pad3(collageNo);
+  resetCanvas(); setRing(0); setStatus('ready'); showLevel(0);
+  state = 'idle'; $('after').classList.remove('show'); $('intro').classList.remove('hidden');
+};
+$('saveBtn').onclick = () => {
+  const url = exportPNG(); $('saveImg').src = url;
+  const a = $('dlLink'); a.href = url; a.download = `collage-${pad3(collageNo)}.png`;
+  a.style.display = location.protocol === 'file:' || location.hostname === 'localhost' ? 'inline-block' : 'none';
+  $('saveview').classList.add('show');
+};
+$('closeSave').onclick = () => $('saveview').classList.remove('show');
+
+$('keyToggle').onclick = () => { $('keyPanel').classList.toggle('show'); $('keyIn').value = ''; $('keyIn').focus(); };
+$('keySave').onclick = () => {
+  const v = $('keyIn').value.trim(); if (!v) return;
+  dgKey = v; try { localStorage.setItem('vc_dg', v); } catch (e) {}
+  $('keyIn').value = ''; $('keyPanel').classList.remove('show'); refreshKeyUI();
+};
+$('keyClear').onclick = () => { dgKey = ''; try { localStorage.removeItem('vc_dg'); } catch (e) {} $('keyPanel').classList.remove('show'); refreshKeyUI(); };
+refreshKeyUI();
+
+(function frame() { render(); requestAnimationFrame(frame); })();
+loadSources();
+
+// test hook: lets an automated check feed fake "voice" without a microphone
+window.__vc = { addScrap, placeStrip, placeWord, finish: async () => { state = 'listening'; await finish(); }, get sources() { return sources.length; } };
+</script>
+</body>
+</html>
