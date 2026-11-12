@@ -165,6 +165,8 @@
   .qbanner.show { display:block; }
   .finish { display:none; width:100%; max-width:560px; margin-top:12px; }
   .finish.show { display:block; }
+  .step { display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; }
+  #micBtn { font-size:15px; padding:16px 28px; }
   footer { margin-top:36px; font-size:11px; color:var(--dim); max-width:560px; line-height:1.6; text-align:center; }
 </style>
 </head>
@@ -190,29 +192,38 @@
     <div class="bar"><button class="ghost" id="flatBtn">Back to flat</button><button class="ghost" id="turntableBtn">Save 8 s turntable</button><span id="view3dNote"></span></div>
   </div>
   <div class="overlay" id="intro">
+    <div class="step" id="step1">
     <div class="modes"><button class="mode on" id="modeCollage">Collage<small>tear paper</small></button><button class="mode" id="modePaint">Paint<small>oil &amp; scratches</small></button></div>
     <div class="remixchip" id="remixChip" style="display:none"><span id="remixText"></span><button id="remixCancel">✕</button></div>
     <p class="title" id="introTitle">Say anything,<br><em>in any language.</em></p>
     <div class="qbox" id="qBox" style="display:none">
-      <div class="lbl">A question to begin</div>
+      <div class="lbl">A question to sit with</div>
       <p class="qtext" id="qText"></p>
-      <p class="qnote">Answer in any language, as much or as little as you like. There’s no wrong answer — or just say whatever comes.</p>
       <button class="link" id="qNext">↻ another question</button>
+      <p class="qnote">Nothing is recording yet. Take a moment with it. Answer in any language, as much or as little as you like — there’s no wrong answer, or just say whatever comes.</p>
     </div>
     <p class="sub" id="introSub"></p>
-    <div class="row" style="flex-direction:column;align-items:center">
-      <button id="micBtn">Use microphone</button>
-      <label class="btn ghost" for="fileIn">Use a voice recording</label>
-      <input id="fileIn" type="file" accept="audio/*,video/*">
-      <button id="playFile" style="display:none">Tear with <span id="fileName">recording</span></button>
-    </div>
     <input class="namefield" id="nameIn" type="text" maxlength="40" autocomplete="off" placeholder="Your name (to sign it, optional)">
+    <button id="readyBtn">I’m ready →</button>
     <button class="link" id="openArchive">See everyone’s work →</button>
     <button class="link" id="keyToggle">Words: off · add Deepgram key</button>
     <div class="keypanel" id="keyPanel">
       <input id="keyIn" type="password" autocomplete="off" placeholder="Paste your Deepgram API key">
       <div class="row"><button id="keySave">Save key</button><button class="ghost" id="keyClear">Remove</button></div>
       <p class="sub" style="font-size:11px">Saved only in this browser on this device. It is never put in the page's code.</p>
+    </div>
+    </div>
+    <div class="step" id="step2" style="display:none">
+      <div class="lbl" id="q2Label">Your question</div>
+      <p class="qtext" id="qText2"></p>
+      <p class="qnote" id="goNote">Press the button when you want to begin. Nothing records until you do. Speak as long as you like, then press Finish.</p>
+      <div class="row" style="flex-direction:column;align-items:center">
+      <button id="micBtn">Use microphone</button>
+      <label class="btn ghost" for="fileIn">Use a voice recording</label>
+      <input id="fileIn" type="file" accept="audio/*,video/*">
+      <button id="playFile" style="display:none">Tear with <span id="fileName">recording</span></button>
+    </div>
+      <button class="link" id="backBtn">← choose a different question</button>
     </div>
     <p class="msg" id="msg"></p>
   </div>
@@ -221,7 +232,7 @@
 <aside class="side right">
 <div class="sidehead lbl">Session</div>
 <div class="panel2 idle" id="hud">
-  <div class="statusline" id="status">Tap “Use microphone” to start.</div>
+  <div class="statusline" id="status">Read the question. Take your time — nothing is recording.</div>
   <div class="hudrow">
     <div class="timebox">
       <div class="lbl" id="timeLabel">Time left</div>
@@ -306,11 +317,11 @@
 
 <footer>v4 · volume, pitch, brightness, speed, breath &amp; pauses → paper · words → cut-out letters · language → city · silence → glue.<br>Material: Aimi's photographs, paintings and posters · rienespecial.com</footer>
 
-<script src="js/sources.js?v=526bad6c"></script>
-<script src="js/params.js?v=526bad6c"></script>
-<script src="js/paint.js?v=526bad6c"></script>
-<script src="js/engine.js?v=526bad6c"></script>
-<script src="js/audio.js?v=526bad6c"></script>
-<script src="js/ui.js?v=526bad6c"></script>
+<script src="js/sources.js?v=75bd1c3c"></script>
+<script src="js/params.js?v=75bd1c3c"></script>
+<script src="js/paint.js?v=75bd1c3c"></script>
+<script src="js/engine.js?v=75bd1c3c"></script>
+<script src="js/audio.js?v=75bd1c3c"></script>
+<script src="js/ui.js?v=75bd1c3c"></script>
 </body>
 </html>

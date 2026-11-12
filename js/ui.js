@@ -91,9 +91,9 @@ function syncMode() {
   $('introSub').textContent = P.mode === 'paint'
     ? 'Your voice drags oil paint across raw canvas. The pitch and sharpness of your voice mix the pigment; words that name a colour (sea, amour, 火, 사랑…) change it. Loud, rough sounds scratch through the wet paint. Your words are painted or carved in.'
     : 'Your voice tears paper from the archive. Louder makes bigger pieces, higher voices float up, a held sound tears a long strip, the words land as cut-out letters, and the language you speak chooses the city.';
-  $('micBtn').textContent = P.mode === 'paint' ? 'Paint with my voice' : 'Use microphone';
+  $('micBtn').textContent = P.mode === 'paint' ? 'Paint' : 'Start tearing';
   buildGuestChips(); showPigment();
-  if (state === 'idle') { showIdleTime(); setStatus(P.mode === 'paint' ? 'Tap “Paint with my voice” to start.' : 'Tap “Use microphone” to start.'); $('voiceHint').textContent = P.mode === 'paint' ? '· speak past the red line to paint' : '· speak past the red line to tear paper'; }
+  if (state === 'idle') { showIdleTime(); showStep(1); $('voiceHint').textContent = P.mode === 'paint' ? '· speak past the red line to paint' : '· speak past the red line to tear paper'; }
 }
 $('modeCollage').onclick = () => setMode('collage');
 $('modePaint').onclick = () => setMode('paint');
@@ -202,6 +202,15 @@ function showQuestion() {
   $('qBanner').textContent = on ? currentQuestion : '';
 }
 $('qNext').onclick = () => nextQuestion();
+// two steps: reflect on the question (nothing recording), then press to begin
+function showStep(n) {
+  $('step1').style.display = n === 1 ? '' : 'none'; $('step2').style.display = n === 2 ? '' : 'none';
+  const on = P.askQuestion && currentQuestion;
+  $('q2Label').style.display = on ? '' : 'none'; $('qText2').textContent = on ? currentQuestion : '';
+  if (state === 'idle') setStatus(n === 1 ? (on ? 'Read the question. Take your time — nothing is recording.' : 'Choose a mode, then press “I’m ready”.') : (P.mode === 'paint' ? 'Press “Paint” when you’re ready to speak.' : 'Press “Start tearing” when you’re ready to speak.'));
+}
+$('readyBtn').onclick = () => showStep(2);
+$('backBtn').onclick = () => showStep(1);
 nextQuestion();
 
 // ---------- finish when you're ready ----------
@@ -247,7 +256,7 @@ function resetToIdle(resetParams) {
   applyShape(); clearPieces(); syncAll(); syncMode(); state = 'idle'; showIdleTime(); showLevel(0); refreshKeyUI(); $('hud').classList.add('idle');
   captionInfo = null; currentWorkId = null; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
 }
-$('againBtn').onclick = () => { resetToIdle(true); remixFrom = null; showRemixChip(); setArtistName('', false); $('nameIn').value = ''; nextQuestion(); };
+$('againBtn').onclick = () => { resetToIdle(true); remixFrom = null; showRemixChip(); setArtistName('', false); $('nameIn').value = ''; nextQuestion(); showStep(1); };
 cv.addEventListener('click', ev => {
   if (state !== 'done' || !listenMode) return;
   const r = cv.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width, py = (ev.clientY - r.top) * H / r.height;
@@ -383,7 +392,7 @@ async function startRemix(w) {
   await new Promise(r => { img.onload = r; img.onerror = r; img.src = url; });
   remixFrom = { id: w.id, no: w.no, name: w.name || '', img };
   $('archive').classList.remove('show');
-  resetToIdle(false);
+  resetToIdle(false); showStep(1);
   P = { ...JSON.parse(JSON.stringify(DEFAULTS)), ...JSON.parse(JSON.stringify(w.params || {})), autoSculpture: false };
   applyShape(); syncAll(); syncMode(); markPreset(null);
   sctx.drawImage(img, 0, 0, W, H); render();
@@ -453,7 +462,7 @@ $('turntableBtn').onclick = async () => {
 };
 
 // ---------- boot ----------
-applyShape(); syncAll(); refreshKeyUI(); showIdleTime(); syncMode();
+applyShape(); syncAll(); refreshKeyUI(); showIdleTime(); syncMode(); showStep(1);
 (function frame() {
   if (highlight && performance.now() > highlight.until) { highlight = null; render(); }
   if (state !== 'done' || anims.length || highlight) render();
