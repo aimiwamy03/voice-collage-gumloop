@@ -55,7 +55,7 @@ function storyPigment(text) {
 }
 
 // ---------- paint state ----------
-let paintJobs = [], strokeNow = null, scratchLevel = 0, story = null, lastPigment = null, paintWords = [];
+let paintLastVoiced = 0, paintJobs = [], strokeNow = null, scratchLevel = 0, story = null, lastPigment = null, paintWords = [];
 function resetPaint() { paintJobs = []; strokeNow = null; scratchLevel = 0; story = null; lastPigment = null; paintWords = []; showPigment(); }
 function voicePigment() {
   const row = clamp(Math.floor(F.brightness * 3), 0, 2), col = clamp(Math.floor(F.pitch * 3), 0, 2);
@@ -80,57 +80,74 @@ const hsl = (hex, dl = 0) => { const [r, g, b] = hexToRgb(hex).map(v => v / 255)
 
 // ---------- brush strokes ----------
 function newStroke(loud) {
-  const b = bounds(), far = F.pause > .5 || !strokeNow;
-  const prev = strokeNow ? strokeNow.pts[strokeNow.pts.length - 1] : [b.cx, b.cy];
-  const x = far ? rnd(b.x0 + 60, b.x1 - 60) : clamp(prev[0] + rnd(-200, 200), b.x0 + 40, b.x1 - 40);
-  const y = P.pitchHeight ? lerp(b.y1 - 60, b.y0 + 60, F.pitch) + rnd(-90, 90) : rnd(b.y0 + 60, b.y1 - 60);
+  // free placement: anywhere on the canvas, even half off the edge; a short pause stays close, a long one jumps
+  const prev = strokeNow ? strokeNow.pts[strokeNow.pts.length - 1] : [W / 2, H / 2];
+  const far = F.pause > .35 || !strokeNow;
+  let x = far ? rnd(-.05, 1.05) * W : prev[0] + rnd(-320, 320);
+  let y = P.pitchHeight ? lerp(H * .95, H * .05, F.pitch) + rnd(-260, 260) : rnd(-.05, 1.05) * H;
+  if (!far) y = prev[1] + rnd(-320, 320);
   const pig = currentPigment(); lastPigment = pig;
-  const T = lerp(18, 120, P.brushSize) * lerp(.7, 1.3, loud);
-  const n = Math.round(clamp(T / 4, 6, 26));
-  const bristles = Array.from({ length: n }, (_, i) => ({ o: (i / (n - 1) - .5) * T * .9 + rnd(-2, 2), dl: rnd(-.14, .12), w: rnd(.8, 1.6) * T / n, a: rnd(.25, .6), skip: rnd() }));
-  strokeNow = { pts: [[x, clamp(y, b.y0 + 30, b.y1 - 30), lerp(.6, 1.15, loud)]], ang: rnd(Math.PI * 2), turn: 0, T, bristles, hex: pig.hex, load: 1, drawn: 0, dry: F.breath };
+  // wet-in-wet: pick up a little of whatever paint is already under the brush
+  let hex = pig.hex;
+  try { const d = sctx.getImageData(clamp(Math.round(x), 0, W - 1), clamp(Math.round(y), 0, H - 1), 1, 1).data; if (d[3] > 60) hex = mixHex(hex, '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join(''), .22); } catch (e) {}
+  const knife = loud > .72 && Math.random() < .55; // loud bursts become a palette-knife smear
+  const T = lerp(40, 230, P.brushSize) * lerp(.65, 1.45, loud) * (knife ? 1.7 : 1);
+  const n = Math.round(clamp(T / 5, 8, 40));
+  const bristles = Array.from({ length: n }, (_, i) => ({ o: (i / (n - 1) - .5) * T * .95 + rnd(-3, 3), dl: rnd(-.16, .14), w: rnd(.8, 1.7) * T / n, a: rnd(.25, .65), skip: rnd() }));
+  strokeNow = { pts: [[x, y, lerp(.5, 1.2, loud)]], ang: rnd(Math.PI * 2), turn: rnd(-.05, .05), T, bristles, hex, load: 1, drawn: 0, dry: F.breath * .7, knife };
   return strokeNow;
 }
 function extendStroke(loud, dtMs) {
-  const s = strokeNow, b = bounds(), last = s.pts[s.pts.length - 1];
-  s.turn = s.turn * .92 + rnd(-1, 1) * lerp(.012, .06, F.speed) + (F.pitch - .5) * .004; // smooth, wandering curves
+  const s = strokeNow, last = s.pts[s.pts.length - 1];
+  // big, loose gestures: momentum in the turning, occasional flicks, drift with pitch
+  s.turn = s.turn * .96 + rnd(-1, 1) * lerp(.02, .11, F.speed) + (F.pitch - .5) * .01;
+  if (Math.random() < .015 + F.speed * .03) s.turn += rnd(-.35, .35); // a flick of the wrist
+  s.turn = clamp(s.turn, -.22, .22);
   s.ang += s.turn;
-  const step = lerp(6, 18, F.speed) * (.6 + loud) * dtMs / 16;
+  const step = lerp(9, 30, F.speed) * (.55 + loud * 1.1) * dtMs / 16;
   let x = last[0] + Math.cos(s.ang) * step, y = last[1] + Math.sin(s.ang) * step;
-  if (x < b.x0 + 20 || x > b.x1 - 20) { s.ang = Math.PI - s.ang; x = clamp(x, b.x0 + 20, b.x1 - 20); }
-  if (y < b.y0 + 20 || y > b.y1 - 20) { s.ang = -s.ang; y = clamp(y, b.y0 + 20, b.y1 - 20); }
-  const prevP = last[2] || 1; s.pts.push([x, y, prevP * .85 + lerp(.55, 1.2, loud) * .15]);
-  s.load = Math.max(.05, s.load - step / lerp(1400, 3600, P.impasto));
+  // the canvas edge is soft: strokes may run off it, but drift back if they wander too far
+  const m = s.T * .6;
+  if (x < -m || x > W + m) s.ang = Math.PI - s.ang + rnd(-.3, .3);
+  if (y < -m || y > H + m) s.ang = -s.ang + rnd(-.3, .3);
+  // pressure follows the voice, swelling and thinning
+  const prevP = last[2] || 1; s.pts.push([x, y, prevP * .8 + lerp(.35, 1.6, loud) * .2]);
+  s.load = Math.max(.05, s.load - step / lerp(2600, 6500, P.impasto) * (s.knife ? .6 : 1));
 }
 // paint the newest segments of a stroke onto the canvas, bristle by bristle
 function drawStrokeSegments(g, s) {
-  const pts = s.pts;
-  for (let i = Math.max(1, s.drawn); i < pts.length; i++) {
-    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
-    const taper = Math.min(1, i / 5), pr = pts[i][2] || 1, load = s.load, dryness = clamp((1 - load) * .9 + s.dry * .5, 0, .9);
-    const Tw = s.T * taper * pr;
-    g.lineCap = 'round'; g.lineJoin = 'round';
-    // the body of paint
-    if (Math.random() > dryness * .7) {
-      g.strokeStyle = hsl(s.hex, 0); g.globalAlpha = lerp(.45, .95, load); g.lineWidth = Tw * lerp(.7, 1, load);
-      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+  const pts = s.pts, start = Math.max(1, s.drawn);
+  if (start >= pts.length) return;
+  const from = start - 1, n = pts.length;
+  // a normal at every point, so offsets follow the curve smoothly
+  const nrm = i => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [-dy / l, dx / l]; };
+  const N = []; for (let i = from; i < n; i++) N[i] = nrm(i);
+  const width = i => s.T * Math.min(1, (i + 1) / 9) * (pts[i][2] || 1);
+  const line = (a, b, off, lw) => { g.lineWidth = lw; g.beginPath(); for (let i = a; i <= b; i++) { const o = off(i); const X = pts[i][0] + N[i][0] * o, Y = pts[i][1] + N[i][1] * o; i === a ? g.moveTo(X, Y) : g.lineTo(X, Y); } g.stroke(); };
+  g.lineJoin = 'round';
+  const step = 3;
+  for (let a = from; a < n - 1; a += step) {
+    const b = Math.min(n - 1, a + step), mid = (a + b) >> 1, Tw = width(mid), load = s.load, dryness = clamp((1 - load) * .85 + s.dry * .5, 0, .9);
+    // body: fully opaque so overlapping chunks never band; the load shows as colour, not transparency
+    if (Math.random() > dryness * .55) {
+      g.lineCap = s.knife ? 'butt' : 'round'; g.globalAlpha = 1; g.strokeStyle = hsl(s.hex, lerp(.06, 0, load));
+      line(a, b, () => 0, Tw * lerp(.7, 1, load));
     }
-    // bristle streaks dragged through it
+    // bristles: each hair is one continuous line through the chunk
+    g.lineCap = 'butt';
     for (const br of s.bristles) {
       if (br.skip < dryness * rnd(.5, 1.1)) continue;
-      const o = br.o * taper * pr;
-      g.strokeStyle = hsl(s.hex, br.dl); g.globalAlpha = br.a * lerp(.6, 1, load) + (dryness > .5 ? .3 : 0); g.lineWidth = br.w * pr;
-      g.beginPath(); g.moveTo(x0 + nx * o, y0 + ny * o); g.lineTo(x1 + nx * o, y1 + ny * o); g.stroke();
+      g.strokeStyle = hsl(s.hex, br.dl * (.6 + br.a)); g.globalAlpha = dryness > .45 ? .9 : 1;
+      line(a, b, i => br.o * Math.min(1, (i + 1) / 9) * (pts[i][2] || 1), br.w * (pts[mid][2] || 1));
     }
-    if (P.impasto > .05) { // thick paint: a lit ridge and a shadowed edge
-      const half = Tw / 2;
-      g.globalAlpha = .45 * P.impasto * load; g.lineWidth = 2; g.strokeStyle = hsl(s.hex, .28);
-      g.beginPath(); g.moveTo(x0 + nx * half * .7, y0 + ny * half * .7); g.lineTo(x1 + nx * half * .7, y1 + ny * half * .7); g.stroke();
-      g.globalAlpha = .4 * P.impasto * load; g.lineWidth = 2.2; g.strokeStyle = hsl(s.hex, -.3);
-      g.beginPath(); g.moveTo(x0 - nx * half, y0 - ny * half); g.lineTo(x1 - nx * half, y1 - ny * half); g.stroke();
+    if (P.impasto > .05) { // thick paint: lit ridges and a shadowed edge
+      g.globalAlpha = 1;
+      g.strokeStyle = hsl(s.hex, .2 * P.impasto * load + .02); line(a, b, i => width(i) / 2 * .72, 2.6);
+      g.strokeStyle = hsl(s.hex, .1 * P.impasto * load); line(a, b, i => -width(i) / 2 * .15, 1.6);
+      g.strokeStyle = hsl(s.hex, -.22 * P.impasto * load - .04); line(a, b, i => -width(i) / 2, 3);
     }
   }
-  g.globalAlpha = 1; s.drawn = pts.length;
+  g.globalAlpha = 1; s.drawn = n;
 }
 function endStroke() {
   const s = strokeNow; if (!s) return;
@@ -193,7 +210,7 @@ function paintWordJob(text, lang, a0, a1) {
   const rec = { canvas: null, pad: 0, w: total, h: size * 1.2, x: cx, y: cy, rot, alpha: 1, word: true, z: 1, t: recTime(), a0, a1, text, att: [] };
   history.push(rec);
   if (scratched) { // a loaded swatch of paint for the letters to be carved through
-    const sw = { pts: [], T: size * 1.25, bristles: [], hex: mixHex(pig.hex, '#1a1612', isDark(P.bg) ? .1 : .35), load: 1, drawn: 0, dry: 0 };
+    const sw = { pts: [], T: size * 1.5, bristles: [], hex: mixHex(pig.hex, '#1a1612', isDark(P.bg) ? .1 : .35), load: 1, drawn: 0, dry: 0 };
     const n = Math.round(clamp(sw.T / 4, 6, 26)); sw.bristles = Array.from({ length: n }, (_, i) => ({ o: (i / (n - 1) - .5) * sw.T * .9, dl: rnd(-.12, .1), w: sw.T / n * rnd(.8, 1.5), a: rnd(.25, .6), skip: rnd() }));
     const c = Math.cos(rot), s = Math.sin(rot), half = total / 2 + size * .3;
     for (let k = 0; k <= 24; k++) { const u = -half + 2 * half * k / 24; sw.pts.push([cx + c * u - s * rnd(-6, 6), cy + s * u + c * rnd(-6, 6), 1]); }
@@ -244,13 +261,14 @@ function paintFrom(r, voiced, held, now, dtMs) {
   // scratchiness builds with loud, rough, breathy sound and slowly relaxes
   scratchLevel = clamp(scratchLevel + (voiced ? loud * (.25 + F.breath + F.brightness * .4) * lerp(.0004, .0016, P.scratchBias) * dtMs : -.00008 * dtMs), 0, 1);
   if (voiced) {
+    paintLastVoiced = now;
     if (!strokeNow || strokeNow.ended) newStroke(loud);
     extendStroke(loud, dtMs);
-    if (strokeNow.pts.length > 260) { endStroke(); newStroke(loud); }
+    if (strokeNow.pts.length > 700 || strokeNow.load < .08) { endStroke(); newStroke(loud); }
     // a sharp burst (an onset while already scratchy) gouges the paint
     if (held < 60 && loud > .45 && Math.random() < scratchLevel * (.5 + P.scratchBias)) {
       const p = strokeNow.pts[strokeNow.pts.length - 1]; scratchMarks(p[0], p[1], Math.round(lerp(2, 9, scratchLevel)), lerp(80, 420, loud), rnd(Math.PI));
     }
-  } else if (strokeNow && !strokeNow.ended) endStroke();
+  } else if (strokeNow && !strokeNow.ended && now - paintLastVoiced > 260) endStroke();
   if (Math.random() < .1) showPigment();
 }

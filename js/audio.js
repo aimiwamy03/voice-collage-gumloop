@@ -3,7 +3,10 @@
 // mic/file input · voice features · patch bay · Deepgram words · recording · session flow
 // ============================================================
 let audioCtx, analyser, buf, fbuf, srcNode, mediaStream, mediaEl, recDest;
-let gate = .02, floor = .01, state = 'idle', tStart = 0, sessionMs = 15000;
+let gate = .02, floor = .01, state = 'idle', tStart = 0, sessionMs = 15000, openEnded = false;
+const OPEN_CAP_MS = 10 * 60 * 1000; // safety stop for open-ended sessions
+function sessionLength() { openEnded = P.sessionSec === 'open'; return openEnded ? OPEN_CAP_MS : (parseInt(P.sessionSec, 10) || 15) * 1000; }
+const progressMs = () => openEnded ? Math.min(90000, sessionMs) : sessionMs; // layouts that spread over time use 90 s when open-ended
 let runStart = 0, voicedMs = 0, lastSpawn = 0, lastT = 0, pitchHist = [], lastPitch = 180, totalVoiced = 0;
 let collageNo = 1; try { collageNo = parseInt(localStorage.getItem('vc_no') || '1', 10) || 1; } catch (e) {}
 const F = { volume: 0, pitch: .5, brightness: .5, speed: 0, breath: 0, pause: 0 };
@@ -124,7 +127,7 @@ function placeWord(text, lang, start, end) {
   const s = makeWord(text, size, m);
   const b = bounds();
   if (s.w > b.w * .95) { const k = (b.w * .95) / s.w, c2 = mk(s.w * k, s.h * k); c2.getContext('2d').drawImage(s.canvas, 0, 0, c2.width, c2.height); s.canvas = c2; s.w = c2.width; s.h = c2.height; }
-  const anchor = positionFor(s.w, s.h, F.pitch, F.volume, clamp((performance.now() - tStart) / sessionMs, 0, 1)); scrapIdx--;
+  const anchor = positionFor(s.w, s.h, F.pitch, F.volume, clamp((performance.now() - tStart) / progressMs(), 0, 1)); scrapIdx--;
   let best = null, bestO = Infinity;
   for (let k = 0; k < 14; k++) {
     const cx = clamp(anchor.x + rnd(-260, 260), b.x0 + s.w / 2, b.x1 - s.w / 2), cy = clamp(anchor.y + rnd(-280, 280), b.y0 + s.h / 2, b.y1 - s.h / 2);
@@ -159,7 +162,7 @@ function spawnFrom(r, held, now) {
   if (P.scrapShape === 'circle') aspect = 1;
   let w = Math.sqrt(area * aspect), h = area / w;
   if (P.layoutMode === 'grid') { const b = bounds(), cols = Math.round(lerp(3, 7, P.density)); w = b.w / cols * rnd(.85, 1.1); h = w / aspect; }
-  const pos = positionFor(w, h, pn, loud, clamp((now - tStart) / sessionMs, 0, 1));
+  const pos = positionFor(w, h, pn, loud, clamp((now - tStart) / progressMs(), 0, 1));
   const tr = lerp(.01, .55, P.tilt);
   const s = makeScrap(w, h, lerp(.18, .92, pn), m);
   pushPiece(s, pos.x + m.drift * 300, pos.y, rnd(-tr, tr) + m.tilt * .6, { alpha: clamp(1 - Math.max(0, m.fade) * .75, .2, 1), z: loud + m.depth, t: recTime() });
@@ -168,7 +171,7 @@ function placeStrip(held) {
   if (P.wordsVsImages > .9 && Math.random() < .7) return;
   const m = mods(), pn = P.pitchHeight ? F.pitch : Math.random(), b = bounds();
   const len = clamp(lerp(380, 1150, (held - 650) / 2600), 300, b.w * .95), th = rnd(46, 92), tr = lerp(.03, .6, P.tilt);
-  const pos = positionFor(len, th, pn, F.volume, clamp((performance.now() - tStart) / sessionMs, 0, 1));
+  const pos = positionFor(len, th, pn, F.volume, clamp((performance.now() - tStart) / progressMs(), 0, 1));
   const prevShape = P.scrapShape; if (prevShape === 'circle' || prevShape === 'triangle') P.scrapShape = 'rect';
   const s = makeScrap(len, th, lerp(.2, .9, pn), m); P.scrapShape = prevShape;
   pushPiece(s, pos.x, pos.y, rnd(-tr, tr) + m.tilt * .6, { z: .5 + m.depth, t: recTime() });
@@ -232,7 +235,7 @@ async function startMic() {
   } catch (e) { $('msg').textContent = 'The microphone isn’t available. Allow mic access in the browser, or use a voice recording.'; return; }
   srcNode = audioCtx.createMediaStreamSource(mediaStream); srcNode.connect(analyser); srcNode.connect(recDest);
   await dgStart(srcNode);
-  sessionMs = (parseInt(P.sessionSec, 10) || 15) * 1000;
+  sessionMs = sessionLength();
   begin(true);
 }
 async function startFile(file) {
@@ -244,7 +247,7 @@ async function startFile(file) {
   srcNode = audioCtx.createMediaElementSource(mediaEl); srcNode.connect(analyser); analyser.connect(audioCtx.destination); srcNode.connect(recDest);
   await dgStart(srcNode);
   try { await mediaEl.play(); } catch (e) { $('msg').textContent = 'Couldn’t play that file. Try another recording.'; return; }
-  sessionMs = Math.min(isFinite(mediaEl.duration) ? mediaEl.duration * 1000 : 20000, 30000);
+  openEnded = false; sessionMs = Math.min(isFinite(mediaEl.duration) ? mediaEl.duration * 1000 : 20000, 120000);
   mediaEl.onended = () => finish();
   $('voiceHint').textContent = '· the recording is playing';
   begin(false);
@@ -267,18 +270,26 @@ function begin(calibrate) {
 }
 function go() {
   state = 'listening'; tStart = performance.now(); lastT = tStart; runStart = 0; voicedMs = 0; lastSpawn = 0; quietSince = tStart;
-  $('hud').classList.remove('idle'); startRecording(); setStatus(`Speak now — you have ${Math.round(sessionMs / 1000)} seconds.`); loop();
+  $('hud').classList.remove('idle'); startRecording(); setStatus(speakPrompt()); $('finishBtn').classList.add('show'); $('qBanner').classList.toggle('show', !!$('qBanner').textContent); loop();
 }
 function setStatus(s) { $('status').textContent = s; }
 const fmtSec = s => `${Math.floor(s / 60)}:${String(Math.max(0, Math.ceil(s) % 60)).padStart(2, '0')}`;
-function setRing(f) { // time left: number, bar and the badge on the canvas
+function speakPrompt() { return openEnded ? 'Speak now — take as long as you like. Press Finish when you’re done.' : `Speak now — you have ${Math.round(sessionMs / 1000)} seconds.`; }
+function setRing(f) { // time left (or time so far, when open-ended): number, bar and the badge on the canvas
+  if (openEnded) {
+    const el = state === 'listening' ? (performance.now() - tStart) / 1000 : 0, m = Math.floor(el / 60), sec = Math.floor(el % 60);
+    $('timeLabel').textContent = 'Time'; $('timeLeft').textContent = `${m}:${String(sec).padStart(2, '0')}`; $('timeFill').style.width = '100%';
+    const cd = $('countdown'); cd.textContent = `${m}:${String(sec).padStart(2, '0')}`; cd.classList.toggle('show', state === 'listening'); cd.classList.remove('low');
+    return;
+  }
+  $('timeLabel').textContent = 'Time left';
   const left = Math.max(0, sessionMs / 1000 * (1 - clamp(f, 0, 1))), secs = Math.ceil(left);
   $('timeLeft').textContent = `0:${String(secs).padStart(2, '0')}`;
   $('timeFill').style.width = (100 * (1 - clamp(f, 0, 1))) + '%';
   const cd = $('countdown'); cd.textContent = secs + 's';
   cd.classList.toggle('show', state === 'listening'); cd.classList.toggle('low', state === 'listening' && secs <= 3);
 }
-function showIdleTime() { sessionMs = (parseInt(P.sessionSec, 10) || 15) * 1000; setRing(0); $('countdown').classList.remove('show'); }
+function showIdleTime() { sessionMs = sessionLength(); setRing(0); $('countdown').classList.remove('show'); }
 function showLevel(r) { const l = $('lvl'); l.style.width = (clamp(r / .25, 0, 1) * 100) + '%'; l.className = r > gate ? 'over' : 'under'; $('gateMark').style.left = (clamp(gate / .25, 0, 1) * 100) + '%'; }
 function loop() {
   if (state !== 'listening') return;
@@ -300,7 +311,7 @@ function loop() {
     if (P.mode === 'paint') paintFrom(r, false, 0, now, dt);
     else if (runStart && voicedMs > 650) placeStrip(voicedMs);
     if (runStart) quietSince = now;
-    runStart = 0; voicedMs = 0; updateFeatures(r, false, now); setStatus(now - tStart < 2500 ? `Speak now — you have ${Math.round(sessionMs / 1000)} seconds.` : 'Listening… keep talking, or stay quiet to finish.');
+    runStart = 0; voicedMs = 0; updateFeatures(r, false, now); setStatus(now - tStart < 2500 ? speakPrompt() : openEnded ? 'Listening… take your time. Press Finish when you’re done.' : 'Listening… keep talking, or press Finish.');
   }
   const f = (now - tStart) / sessionMs; setRing(f);
   if (f >= 1) return finish();
@@ -308,7 +319,7 @@ function loop() {
 }
 async function finish() {
   if (state !== 'listening') return;
-  state = 'settling'; setStatus('Time’s up — gluing everything down…'); setRing(1); $('countdown').classList.remove('show');
+  state = 'settling'; setStatus(openEnded ? 'Finishing — letting the paint settle…' : 'Time’s up — gluing everything down…'); if (!openEnded) setRing(1); $('countdown').classList.remove('show'); $('finishBtn').classList.remove('show'); $('qBanner').classList.remove('show');
   if (mediaEl) mediaEl.pause();
   await dgStop();
   try { srcNode && srcNode.disconnect(); analyser && analyser.disconnect(); } catch (e) {}
@@ -324,7 +335,7 @@ async function finish() {
   await drawCaption();
   await new Promise(r => setTimeout(r, 1300)); // hold the final frame in the video
   await stopVideoRecording();
-  state = 'done'; setStatus('Done. Save it, listen back, or open it in 3D.'); showLevel(0); setRing(1); $('countdown').classList.remove('show'); $('hud').classList.add('idle');
+  state = 'done'; setStatus('Done. Save it, listen back, or open it in 3D.'); showLevel(0); if (!openEnded) setRing(1); $('countdown').classList.remove('show'); $('hud').classList.add('idle');
   await afterCollage();
 }
 let captionInfo = null, artistName = '';

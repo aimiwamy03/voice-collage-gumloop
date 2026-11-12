@@ -20,6 +20,24 @@ const LANG_DEFAULT = {
   other: 'mouvement, hero, pali, mixed-media__04-crew',
 };
 
+// a question to begin with — gentle, honest, no wrong answers
+const QUESTIONS = [
+  'What is a feeling you’ve carried today that no one has asked you about?',
+  'Where do you feel most like yourself — and when were you last there?',
+  'What did you believe as a child that you wish were still true?',
+  'What is something you’ve never said out loud, but could say now?',
+  'Who do you miss, and what would you tell them?',
+  'What does home sound like to you?',
+  'What are you pretending not to know?',
+  'What small moment from this year do you want to keep forever?',
+  'What would you say to yourself ten years ago?',
+  'When did you last change your mind about something that mattered?',
+  'What are you afraid to want?',
+  'What can your first language say that English can’t?',
+  'What is something tender you once noticed about a stranger?',
+  'What are you grateful for that you rarely say thank you for?',
+  'If this canvas could hold one memory for you, which would it be?',
+];
 const FEATURES = ['volume', 'pitch', 'brightness', 'speed', 'breath', 'pause'];
 const FEATURE_HINT = {
   volume: 'how loud', pitch: 'how high', brightness: 'sharp vs warm voice', speed: 'how fast you talk',
@@ -30,7 +48,7 @@ const TARGETS = ['size', 'tilt', 'hue', 'scatter', 'depth', 'blur', 'fade', 'dri
 const DEFAULTS = {
   mode: 'collage',
   // paint mode
-  brushSize: .5, impasto: .6, scratchBias: .5, letterStyle: 'auto', storyColor: true, drips: .3,
+  brushSize: .6, impasto: .75, scratchBias: .5, letterStyle: 'auto', storyColor: true, drips: .3,
   // canvas
   shape: 'portrait', bg: '#f4f1ea', texture: 'grain', vignette: .35, frame: 0,
   // words
@@ -48,7 +66,7 @@ const DEFAULTS = {
   // effects
   grain: .25, leaks: 0, aberration: 0, streaks: 0, copyChain: false,
   // voice
-  sensitivity: .5, pitchHeight: true, sessionSec: 15,
+  sensitivity: .5, pitchHeight: true, sessionSec: 15, askQuestion: true,
   patch: { 'volume>size': 0, 'brightness>hue': 0, 'speed>scatter': .5, 'breath>blur': .5, 'pause>drift': 0 },
   // 3d + output
   depth3d: .6, autoSculpture: false, recordVideo: true,
@@ -69,11 +87,11 @@ const PRESETS = {
   'Photocopy': { treatment: 'photocopy', copyChain: true, streaks: .5, grain: .55, textMode: 'tiles', typeface: 'display', letterMix: .4, bg: '#ecebe6', texture: 'smooth', shape: 'portrait', autoSculpture: false },
 };
 const PAINT_PRESETS = {
-  'Oil sketch': { mode: 'paint', bg: '#e6d8bd', texture: 'linen', brushSize: .55, impasto: .6, scratchBias: .35, letterStyle: 'auto', drips: .25, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .2, leaks: 0 },
-  'Sgraffito': { mode: 'paint', bg: '#efe6d4', texture: 'linen', brushSize: .85, impasto: .8, scratchBias: 1, letterStyle: 'scratched', drips: .1, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .15, leaks: 0 },
-  'Night oil': { mode: 'paint', bg: '#151412', texture: 'linen', brushSize: .6, impasto: .75, scratchBias: .5, letterStyle: 'painted', drips: .45, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .2, leaks: .25 },
-  'Story painting': { mode: 'paint', bg: '#f1ead9', texture: 'linen', brushSize: .4, impasto: .5, scratchBias: .3, letterStyle: 'painted', drips: .2, typeface: 'hand', wordSize: .8, wordsVsImages: .8, shape: 'landscape', storyColor: true, autoSculpture: false, grain: .15, leaks: 0 },
-  'Paint in 3D': { mode: 'paint', bg: '#e6d8bd', texture: 'linen', brushSize: .7, impasto: .9, scratchBias: .6, letterStyle: 'auto', drips: .3, shape: 'square', storyColor: true, autoSculpture: true, depth3d: .9 },
+  'Oil sketch': { mode: 'paint', sessionSec: 'open', bg: '#e6d8bd', texture: 'linen', brushSize: .62, impasto: .75, scratchBias: .35, letterStyle: 'auto', drips: .25, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .2, leaks: 0 },
+  'Sgraffito': { mode: 'paint', sessionSec: 'open', bg: '#efe6d4', texture: 'linen', brushSize: .85, impasto: .8, scratchBias: 1, letterStyle: 'scratched', drips: .1, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .15, leaks: 0 },
+  'Night oil': { mode: 'paint', sessionSec: 'open', bg: '#151412', texture: 'linen', brushSize: .6, impasto: .75, scratchBias: .5, letterStyle: 'painted', drips: .45, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .2, leaks: .25 },
+  'Story painting': { mode: 'paint', sessionSec: 'open', bg: '#f1ead9', texture: 'linen', brushSize: .5, impasto: .65, scratchBias: .3, letterStyle: 'painted', drips: .2, typeface: 'hand', wordSize: .8, wordsVsImages: .8, shape: 'landscape', storyColor: true, autoSculpture: false, grain: .15, leaks: 0 },
+  'Paint in 3D': { mode: 'paint', sessionSec: 'open', bg: '#e6d8bd', texture: 'linen', brushSize: .7, impasto: .9, scratchBias: .6, letterStyle: 'auto', drips: .3, shape: 'square', storyColor: true, autoSculpture: true, depth3d: .9 },
 };
 for (const k in PRESETS) PRESETS[k].mode = 'collage';
 Object.assign(PRESETS, PAINT_PRESETS);
@@ -158,7 +176,8 @@ const SCHEMA = [
   { sec: 'Voice', items: [
     R('sensitivity', 'Hearing', 'needs a shout', 'hears a whisper'),
     B('pitchHeight', 'Pitch → height'),
-    S('sessionSec', 'Session length (s)', [10, 15, 30]),
+    S('sessionSec', 'Session length', ['10', '15', '30', '60', 'open']),
+    B('askQuestion', 'Open with a question'),
   ]},
   { sec: '3D & output', items: [
     R('depth3d', 'Sculpture depth', 'flat', 'deep'),

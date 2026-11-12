@@ -21,6 +21,7 @@ function onParam(k) {
   else if (PAPER_KEYS.includes(k)) paintPaper();
   if (state === 'done') render();
   if (k === 'sessionSec' && state === 'idle') showIdleTime();
+  if (k === 'askQuestion') showQuestion();
   markPreset(null);
 }
 function control(item, compact) {
@@ -32,7 +33,7 @@ function control(item, compact) {
     refresh = () => { i.value = Math.round(P[k] * 100); };
   } else if (item.type === 'select') {
     d.innerHTML = `<span class="name">${item.label}</span><select>${item.options.map(o => `<option value="${o}">${o}</option>`).join('')}</select>`;
-    const s = d.querySelector('select'); s.onchange = () => { P[k] = typeof item.options[0] === 'number' ? Number(s.value) : s.value; sync(k, refresh); onParam(k); };
+    const s = d.querySelector('select'); s.onchange = () => { const v = s.value; P[k] = k === 'sessionSec' && v !== 'open' ? Number(v) : v; sync(k, refresh); onParam(k); };
     refresh = () => { s.value = String(P[k]); };
   } else if (item.type === 'color') {
     d.innerHTML = `<span class="name">${item.label}</span><span class="colorrow"><input type="color"><code></code></span>`;
@@ -92,7 +93,7 @@ function syncMode() {
     : 'Your voice tears paper from the archive. Louder makes bigger pieces, higher voices float up, a held sound tears a long strip, the words land as cut-out letters, and the language you speak chooses the city.';
   $('micBtn').textContent = P.mode === 'paint' ? 'Paint with my voice' : 'Use microphone';
   buildGuestChips(); showPigment();
-  if (state === 'idle') { setStatus(P.mode === 'paint' ? 'Tap “Paint with my voice” to start.' : 'Tap “Use microphone” to start.'); $('voiceHint').textContent = P.mode === 'paint' ? '· speak past the red line to paint' : '· speak past the red line to tear paper'; }
+  if (state === 'idle') { showIdleTime(); setStatus(P.mode === 'paint' ? 'Tap “Paint with my voice” to start.' : 'Tap “Use microphone” to start.'); $('voiceHint').textContent = P.mode === 'paint' ? '· speak past the red line to paint' : '· speak past the red line to tear paper'; }
 }
 $('modeCollage').onclick = () => setMode('collage');
 $('modePaint').onclick = () => setMode('paint');
@@ -187,6 +188,26 @@ $('keyToggle').onclick = () => { $('keyPanel').classList.toggle('show'); $('keyI
 $('keySave').onclick = () => { const v = $('keyIn').value.trim(); if (!v) return; dgKey = v; try { localStorage.setItem('vc_dg', v); } catch (e) {} $('keyIn').value = ''; $('keyPanel').classList.remove('show'); refreshKeyUI(); };
 $('keyClear').onclick = () => { dgKey = ''; try { localStorage.removeItem('vc_dg'); } catch (e) {} $('keyPanel').classList.remove('show'); refreshKeyUI(); };
 
+// ---------- a question to begin ----------
+let currentQuestion = '', qOrder = [];
+function nextQuestion() {
+  if (!qOrder.length) qOrder = QUESTIONS.map((_, i) => i).sort(() => Math.random() - .5);
+  currentQuestion = QUESTIONS[qOrder.pop()]; showQuestion();
+}
+function showQuestion() {
+  const on = P.askQuestion && currentQuestion;
+  $('qBox').style.display = on ? '' : 'none';
+  $('qText').textContent = currentQuestion;
+  $('introTitle').style.display = on ? 'none' : ''; $('intro').classList.toggle('qon', !!on);
+  $('qBanner').textContent = on ? currentQuestion : '';
+}
+$('qNext').onclick = () => nextQuestion();
+nextQuestion();
+
+// ---------- finish when you're ready ----------
+$('finishBtn').onclick = () => { if (state === 'listening') finish(); };
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && state === 'listening' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) finish(); });
+
 // ---------- start ----------
 $('micBtn').onclick = () => startMic();
 let pendingFile = null;
@@ -226,7 +247,7 @@ function resetToIdle(resetParams) {
   applyShape(); clearPieces(); syncAll(); syncMode(); state = 'idle'; showIdleTime(); showLevel(0); refreshKeyUI(); $('hud').classList.add('idle');
   captionInfo = null; currentWorkId = null; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
 }
-$('againBtn').onclick = () => { resetToIdle(true); remixFrom = null; showRemixChip(); setArtistName('', false); $('nameIn').value = ''; };
+$('againBtn').onclick = () => { resetToIdle(true); remixFrom = null; showRemixChip(); setArtistName('', false); $('nameIn').value = ''; nextQuestion(); };
 cv.addEventListener('click', ev => {
   if (state !== 'done' || !listenMode) return;
   const r = cv.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width, py = (ev.clientY - r.top) * H / r.height;
@@ -259,7 +280,7 @@ const fileBase = w => `collage-${pad3(w.no)}${w.name ? '-' + slug(w.name) : ''}`
 let currentWorkId = null;
 async function saveWork() {
   const rec = {
-    no: collageNo, name: artistName, at: Date.now(), mode: P.mode, shape: P.shape,
+    no: collageNo, name: artistName, at: Date.now(), mode: P.mode, shape: P.shape, question: P.askQuestion ? currentQuestion : '',
     img: await toBlob(finalCanvas), thumb: thumbOf(finalCanvas), video: videoBlob || null,
     words: heardWords.slice(0, 80), langs: [...heardLangs.keys()], params: JSON.parse(JSON.stringify(P)),
     parent: remixFrom ? remixFrom.id : null, parentNo: remixFrom ? remixFrom.no : null, parentName: remixFrom ? remixFrom.name : '',
@@ -318,7 +339,7 @@ async function openDetail(id) {
   $('detImg').src = u;
   const d = new Date(w.at);
   $('detTitle').textContent = `No. ${pad3(w.no)}${w.name ? ' — ' + w.name : ''}`;
-  $('detMeta').textContent = [`${w.mode === 'paint' ? 'Paint' : 'Collage'} · ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, w.parentNo ? `after No. ${pad3(w.parentNo)}${w.parentName ? ' by ' + w.parentName : ''}` : '', w.words && w.words.length ? `“${w.words.join(' ')}”` : ''].filter(Boolean).join('\n');
+  $('detMeta').textContent = [`${w.mode === 'paint' ? 'Paint' : 'Collage'} · ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, w.question ? `Asked: ${w.question}` : '', w.parentNo ? `after No. ${pad3(w.parentNo)}${w.parentName ? ' by ' + w.parentName : ''}` : '', w.words && w.words.length ? `Said: “${w.words.join(' ')}”` : ''].filter(Boolean).join('\n');
   $('detVideo').style.display = w.video ? '' : 'none';
   $('detDelete').style.display = studioUnlocked ? '' : 'none'; $('detDelete').textContent = 'Delete'; $('detDelete').dataset.armed = '';
   $('detImg').onclick = null;
@@ -343,7 +364,7 @@ $('archZip').onclick = async () => {
     const works = await allWorks(true), zip = new JSZip(), meta = [];
     for (const w of works) {
       const base = fileBase(w); zip.file(base + '.jpg', w.img); if (w.video) zip.file(base + (w.video.type.includes('mp4') ? '.mp4' : '.webm'), w.video);
-      meta.push({ no: w.no, name: w.name, at: new Date(w.at).toISOString(), mode: w.mode, words: w.words, languages: w.langs, after: w.parentNo || null, afterName: w.parentName || null, settings: w.params });
+      meta.push({ no: w.no, name: w.name, at: new Date(w.at).toISOString(), mode: w.mode, question: w.question || null, words: w.words, languages: w.langs, after: w.parentNo || null, afterName: w.parentName || null, settings: w.params });
     }
     zip.file('archive.json', JSON.stringify(meta, null, 2));
     downloadBlob(await zip.generateAsync({ type: 'blob' }), `voice-collage-archive-${new Date().toISOString().slice(0, 10)}.zip`);
