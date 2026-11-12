@@ -29,6 +29,7 @@ function applyShape() {
   for (const k of ['paper', 'settled', 'words', 'ghost', 'caption']) layers[k] = mk(W, H);
   sctx = layers.settled.getContext('2d'); wctx = layers.words.getContext('2d'); gctx = layers.ghost.getContext('2d');
   $('stage').style.aspectRatio = `${W} / ${H}`;
+  $('stage').style.setProperty('--ar', String(W / H));
   seedShape(); paintPaper();
 }
 function seedShape() {
