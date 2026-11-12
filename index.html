@@ -5,25 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<title>Voice → Collage (prototype)</title>
+<title>Voice → Collage</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
   :root { --bg:#e9e5dc; --ink:#141414; --dim:#6b675f; --paper:#f4f1ea; }
   * { box-sizing:border-box; }
   html,body { margin:0; background:var(--bg); color:var(--ink); font-family:'IBM Plex Mono', ui-monospace, monospace; }
   body { min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:20px 14px 40px; }
-  header { width:100%; max-width:560px; display:flex; justify-content:space-between; align-items:baseline; font-size:12px; letter-spacing:.08em; color:var(--dim); text-transform:uppercase; margin-bottom:12px; }
-  .stage { position:relative; width:100%; max-width:560px; aspect-ratio:4/5; background:var(--paper-stock, var(--paper)); box-shadow:0 1px 0 rgba(0,0,0,.05), 0 18px 40px rgba(0,0,0,.14); }
-  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
-  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:28px; gap:16px; background:rgba(244,241,234,.92); transition:opacity .4s; }
+  header { width:100%; max-width:560px; display:flex; justify-content:space-between; align-items:baseline; font-size:12px; letter-spacing:.08em; color:var(--dim); text-transform:uppercase; margin-bottom:12px; user-select:none; }
+  .stage { position:relative; width:100%; max-width:560px; aspect-ratio:4/5; }
+  .stage canvas#cv { position:absolute; inset:0; width:100%; height:100%; display:block; filter: drop-shadow(0 16px 26px rgba(0,0,0,.16)) drop-shadow(0 1px 1px rgba(0,0,0,.06)); }
+  .stage.listening canvas#cv { cursor:pointer; }
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:28px; gap:14px; background:rgba(244,241,234,.93); transition:opacity .4s; z-index:2; }
   .overlay.hidden { opacity:0; pointer-events:none; }
   .title { font-family:'Instrument Serif', serif; font-size:clamp(34px,8vw,52px); line-height:1.02; margin:0; }
   .title em { font-style:italic; }
   .sub { font-size:13px; line-height:1.6; color:var(--dim); max-width:360px; margin:0; }
   button, .btn { font:inherit; font-size:13px; letter-spacing:.08em; text-transform:uppercase; border:1px solid var(--ink); background:var(--ink); color:var(--paper); padding:13px 20px; cursor:pointer; min-width:230px; }
   button.ghost, .btn.ghost { background:transparent; color:var(--ink); }
-  button:disabled { opacity:.4; cursor:default; }
+  button.on { background:#c0262d; border-color:#c0262d; color:#fff; }
   .row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
   .hud { width:100%; max-width:560px; display:flex; align-items:center; gap:14px; margin-top:14px; min-height:44px; font-size:12px; color:var(--dim); }
   .ring { width:40px; height:40px; flex:none; }
@@ -31,58 +32,91 @@
   .meter i { position:absolute; left:0; top:0; bottom:0; width:0; background:var(--ink); transition:width .05s linear; }
   .meter b { position:absolute; top:-3px; bottom:-3px; width:1px; background:#b3261e; left:0; }
   .status { min-width:110px; text-align:right; }
+  .features { width:100%; max-width:560px; display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin-top:8px; }
+  .feat { position:relative; height:34px; background:rgba(0,0,0,.05); display:flex; align-items:flex-end; }
+  .feat i { display:block; width:100%; background:var(--ink); height:0; transition:height .08s linear; }
+  .feat span { position:absolute; left:4px; top:3px; font-size:9px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); mix-blend-mode:difference; filter:invert(1) grayscale(1) contrast(9); }
+  .words { font-size:11px; letter-spacing:.06em; text-transform:uppercase; }
   .msg { font-size:12px; color:#b3261e; max-width:360px; line-height:1.5; margin:0; }
-  .after { width:100%; max-width:560px; display:none; gap:10px; margin-top:14px; justify-content:center; flex-wrap:wrap; }
-  .after.show { display:flex; }
-  .saveview { position:fixed; inset:0; background:rgba(20,20,20,.88); display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:20px; z-index:10; }
-  .saveview.show { display:flex; }
-  .saveview img { max-width:min(92vw,520px); max-height:72vh; box-shadow:0 10px 40px rgba(0,0,0,.5); }
-  .saveview p { color:#eee; font-size:12px; letter-spacing:.06em; margin:0; text-align:center; }
-  .saveview button { background:var(--paper); color:var(--ink); border-color:var(--paper); }
-  input[type=file] { display:none; }
   .link { background:none; border:none; color:var(--dim); text-transform:none; letter-spacing:0; padding:4px; min-width:0; text-decoration:underline; font-size:12px; }
   .keypanel { display:none; flex-direction:column; gap:8px; align-items:center; width:100%; max-width:340px; }
   .keypanel.show { display:flex; }
   .keypanel input { font:inherit; font-size:13px; width:100%; padding:11px 12px; border:1px solid var(--ink); background:#fff; }
   .keypanel .row button { min-width:0; padding:10px 16px; }
-  .words { font-size:11px; letter-spacing:.06em; text-transform:uppercase; }
+  input[type=file] { display:none; }
   .controls { width:100%; max-width:560px; margin-top:16px; display:flex; flex-direction:column; gap:14px; }
   .controls.hidden { display:none; }
   .chips { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
-  #stockChips { display:flex; flex-wrap:wrap; }
   @media (max-width:520px) { .chips { grid-template-columns:repeat(2, 1fr); } }
-  input[type=checkbox] { accent-color:var(--ink); }
-  .chip { font:inherit; font-size:12px; letter-spacing:.04em; padding:9px 12px; min-width:0; border:1px solid var(--ink); background:transparent; color:var(--ink); text-transform:none; cursor:pointer; }
+  .chip { font:inherit; font-size:12px; letter-spacing:.04em; padding:9px 10px; min-width:0; border:1px solid var(--ink); background:transparent; color:var(--ink); text-transform:none; cursor:pointer; text-align:left; }
   .chip.on { background:var(--ink); color:var(--paper); }
   .chip small { display:block; font-size:10px; opacity:.65; margin-top:2px; letter-spacing:0; }
-  .lever { display:grid; grid-template-columns: 74px 1fr; gap:4px 12px; align-items:center; font-size:11px; }
+  .lever { display:grid; grid-template-columns: 112px 1fr; gap:4px 12px; align-items:center; font-size:11px; }
+  .lever.compact { grid-template-columns: 74px 1fr; }
   .lever .name { text-transform:uppercase; letter-spacing:.08em; font-size:11px; }
   .lever .ends { grid-column:2; display:flex; justify-content:space-between; color:var(--dim); font-size:10px; margin-top:-4px; }
+  .lever select { font:inherit; font-size:12px; padding:6px 8px; border:1px solid var(--ink); background:#fff; width:100%; }
+  .lever.checkrow { grid-template-columns:1fr; }
+  .colorrow { display:flex; align-items:center; gap:10px; } .colorrow input { width:44px; height:28px; border:1px solid var(--ink); padding:0; background:none; } .colorrow code { font-size:11px; color:var(--dim); }
   input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:2px; background:var(--ink); outline:none; margin:10px 0; }
   input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--paper); border:1.5px solid var(--ink); cursor:pointer; }
   input[type=range]::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:var(--paper); border:1.5px solid var(--ink); cursor:pointer; }
+  input[type=checkbox] { accent-color:var(--ink); }
   .lbl { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); }
-  .studio { position:fixed; inset:0; background:rgba(20,20,20,.55); display:none; align-items:flex-start; justify-content:center; z-index:20; overflow:auto; padding:20px 12px 60px; }
-  .studio.show { display:flex; }
-  .studio .panel { background:var(--paper); width:100%; max-width:560px; padding:22px 20px 26px; display:flex; flex-direction:column; gap:14px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
-  .studio h2 { font-family:'Instrument Serif', serif; font-weight:400; font-size:34px; margin:0; }
-  .studio .grid { display:flex; flex-direction:column; gap:6px; }
-  .studio .row { justify-content:flex-start; }
-  .studio button { min-width:0; padding:10px 14px; font-size:11px; }
-  .studio select { font:inherit; font-size:12px; padding:6px 8px; border:1px solid var(--ink); background:#fff; }
-  .studio label.ck { font-size:12px; display:inline-flex; gap:6px; align-items:center; margin-right:12px; }
+  .after { width:100%; max-width:560px; display:none; gap:8px; margin-top:14px; justify-content:center; flex-wrap:wrap; }
+  .after.show { display:flex; }
+  .after button { min-width:0; flex:1 1 30%; padding:12px 10px; font-size:12px; }
+  /* studio */
+  .studio, .wall { position:fixed; inset:0; background:rgba(20,20,20,.55); display:none; align-items:flex-start; justify-content:center; z-index:20; overflow:auto; padding:20px 12px 60px; }
+  .studio.show, .wall.show { display:flex; }
+  .panel { background:var(--paper); width:100%; max-width:640px; padding:22px 20px 26px; display:flex; flex-direction:column; gap:14px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  .panel h2 { font-family:'Instrument Serif', serif; font-weight:400; font-size:34px; margin:0; }
+  .panel button { min-width:0; padding:10px 14px; font-size:11px; }
+  .panel .chips button { padding:9px 10px; }
+  details.sec { border-top:1px solid rgba(0,0,0,.15); padding-top:10px; }
+  details.sec summary { cursor:pointer; font-size:11px; letter-spacing:.12em; text-transform:uppercase; list-style:none; display:flex; justify-content:space-between; }
+  details.sec summary::after { content:'+'; } details.sec[open] summary::after { content:'–'; }
+  details.sec .grid { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+  label.ck { font-size:12px; display:inline-flex; gap:6px; align-items:center; margin-right:12px; line-height:2; }
   .note { font-size:11px; color:var(--dim); line-height:1.5; margin:0; }
-  footer { margin-top:22px; font-size:11px; color:var(--dim); max-width:560px; line-height:1.6; text-align:center; }
+  .langrow { display:grid; grid-template-columns:112px 1fr; gap:12px; align-items:center; font-size:11px; }
+  .langrow .name { text-transform:uppercase; letter-spacing:.08em; }
+  .langrow input { font:inherit; font-size:12px; padding:7px 8px; border:1px solid var(--ink); background:#fff; width:100%; }
+  table.patch { border-collapse:collapse; width:100%; font-size:10px; }
+  table.patch th { font-weight:500; text-transform:uppercase; letter-spacing:.05em; padding:4px 2px; color:var(--dim); }
+  table.patch tr th:first-child { text-align:left; color:var(--ink); }
+  table.patch td { padding:2px; text-align:center; }
+  table.patch td button { width:100%; min-width:0; padding:7px 0; font-size:12px; background:transparent; color:var(--ink); border:1px solid rgba(0,0,0,.25); letter-spacing:0; }
+  table.patch td button.pos { background:var(--ink); color:var(--paper); }
+  table.patch td button.neg { background:#c0262d; border-color:#c0262d; color:#fff; }
+  /* wall */
+  .wall .panel { max-width:1100px; }
+  .wallgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:14px; }
+  .wallgrid figure { margin:0; } .wallgrid img { width:100%; display:block; box-shadow:0 6px 16px rgba(0,0,0,.18); }
+  .wallgrid figcaption { font-size:10px; color:var(--dim); margin-top:6px; line-height:1.4; }
+  /* 3d */
+  .view3d { position:absolute; inset:0; z-index:3; display:none; background:transparent; }
+  .view3d.show { display:block; }
+  .view3d .bar { position:absolute; left:10px; right:10px; top:10px; display:flex; gap:8px; align-items:center; }
+  .view3d .bar button { background:rgba(244,241,234,.9); }
+  .view3d .bar button { min-width:0; padding:9px 12px; font-size:11px; }
+  .view3d .bar span { font-size:11px; color:var(--ink); flex:1; text-align:right; background:rgba(244,241,234,.8); padding:4px 6px; }
+  #view3dCanvas, #view3dCanvas canvas { width:100%; height:100%; display:block; }
+  footer { margin-top:28px; font-size:11px; color:var(--dim); max-width:560px; line-height:1.6; text-align:center; }
 </style>
 </head>
 <body>
-<header><span>voice → collage · v3 · your archive</span><span id="noLabel">No. 001</span></header>
+<header><span>voice → collage · v4</span><span id="noLabel">No. 001</span></header>
 
 <div class="stage" id="stage">
   <canvas id="cv" width="1200" height="1500"></canvas>
+  <div class="view3d" id="view3d">
+    <div id="view3dCanvas"></div>
+    <div class="bar"><button class="ghost" id="flatBtn">Back to flat</button><button class="ghost" id="turntableBtn">Save 8 s turntable</button><span id="view3dNote"></span></div>
+  </div>
   <div class="overlay" id="intro">
     <p class="title">Say anything,<br><em>in any language.</em></p>
-    <p class="sub">Your voice tears paper. Louder makes bigger pieces, higher voices float to the top, a long held sound tears a long strip. Silence glues it down.</p>
+    <p class="sub">Your voice tears paper from the archive. Louder makes bigger pieces, higher voices float up, a held sound tears a long strip, the words land as cut-out letters, and the language you speak chooses the city.</p>
     <div class="row" style="flex-direction:column;align-items:center">
       <button id="micBtn">Use microphone</button>
       <label class="btn ghost" for="fileIn">Use a voice recording</label>
@@ -104,7 +138,8 @@
   <div class="meter"><i id="lvl"></i><b id="gateMark"></b></div>
   <div class="status" id="status">ready</div>
 </div>
-<div class="hud" style="margin-top:2px;min-height:0">
+<div class="features" id="features"></div>
+<div class="hud" style="margin-top:6px;min-height:0">
   <span class="words" id="wordsStatus"></span><span style="flex:1"></span><span class="words" id="heard"></span>
 </div>
 
@@ -115,836 +150,57 @@
 
 <div class="after" id="after">
   <button id="saveBtn">Save image</button>
+  <button id="videoBtn">Save video</button>
+  <button class="ghost" id="listenBtn">Listen</button>
+  <button class="ghost" id="sculptBtn">3D sculpture</button>
   <button class="ghost" id="againBtn">Again</button>
 </div>
 
 <div class="studio" id="studio">
   <div class="panel">
-    <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Studio</h2><span class="lbl">only for Aimi · press S or triple-tap “No.”</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2>Studio</h2><span class="lbl">only for Aimi · S = studio · W = wall</span></div>
     <div><div class="lbl" style="margin-bottom:8px">Presets</div><div class="chips" id="studioPresets"></div></div>
-    <div class="lbl">Words</div><div class="grid" id="lvWords"></div>
-    <div class="lbl">Paper</div><div class="grid" id="lvPaper"></div>
-    <div class="lbl">Colour &amp; material</div><div class="grid" id="lvColor"></div>
-    <div><div class="lbl" style="margin-bottom:8px">Series to tear from</div><div id="seriesBox"></div></div>
-    <div><div class="lbl" style="margin-bottom:8px">Paper stock</div><div class="chips" id="stockChips"></div></div>
-    <div class="lbl">Voice</div><div class="grid" id="lvVoice"></div>
-    <div class="row" style="gap:16px;align-items:center">
-      <label class="ck"><input type="checkbox" id="pitchHeight"> Pitch → height</label>
-      <label class="ck">Session <select id="sessionSec"><option value="10">10 s</option><option value="15">15 s</option><option value="30">30 s</option></select></label>
-      <label class="ck"><input type="checkbox" id="resetAfter"> Reset guest choices after each collage</label>
-    </div>
-    <div><div class="lbl" style="margin-bottom:8px">Physical knobs (USB MIDI)</div>
-      <div class="row"><button class="ghost" id="midiBtn">Connect MIDI knobs</button></div>
-      <p class="note" id="midiNote">Plug in any MIDI controller, connect, then turn knobs one by one: the first 8 knobs you move are assigned in order to Scatter, Colour, Density, Letter mix, Word size, Words vs images, Edge, Tilt.</p></div>
-    <div class="row"><button id="saveDefaults">Save as defaults</button><button class="ghost" id="resetDefaults">Factory reset</button><button class="ghost" id="closeStudio">Close</button></div>
+    <div id="studioSections"></div>
+    <details class="sec"><summary>Patch bay · voice → visuals</summary>
+      <div class="grid">
+        <p class="note">Route any voice feature to any visual parameter. Tap a cell to cycle · → + → ++ → − → −−. Watch the six feature bars under the canvas while you talk.</p>
+        <div id="patchBay"></div>
+        <div class="row" style="justify-content:flex-start"><button class="ghost" id="patchClear">Clear patches</button></div>
+      </div>
+    </details>
+    <details class="sec"><summary>Language → archive</summary>
+      <div class="grid">
+        <p class="note">When “Language chooses the archive” is on (Images), each spoken language tears only from these parts of the archive. Use comma-separated name prefixes. Available: <span id="langPrefixes"></span></p>
+        <div id="langMap"></div>
+      </div>
+    </details>
+    <details class="sec"><summary>Knobs, defaults &amp; wall</summary>
+      <div class="grid">
+        <label class="ck"><input type="checkbox" id="resetAfter"> Reset guest choices after each collage</label>
+        <div class="row" style="justify-content:flex-start"><button class="ghost" id="midiBtn">Connect MIDI knobs</button><button class="ghost" id="midiReset">Forget knob assignments</button></div>
+        <p class="note" id="midiNote"></p>
+        <div class="row" style="justify-content:flex-start"><button class="ghost" id="openWall">Open tonight’s wall</button></div>
+      </div>
+    </details>
+    <div class="row" style="justify-content:flex-start"><button id="saveDefaults">Save as defaults</button><button class="ghost" id="resetDefaults">Factory reset</button><button class="ghost" id="closeStudio">Close</button></div>
     <p class="note" id="studioNote"></p>
   </div>
 </div>
 
-<div class="saveview" id="saveview">
-  <img id="saveImg" alt="Your collage">
-  <p id="saveHint">Long-press (phone) or right-click (laptop) the image to save it.</p>
-  <div class="row"><a class="btn" id="dlLink" download="collage.png" style="text-decoration:none;text-align:center;display:none">Download PNG</a><button id="closeSave">Close</button></div>
+<div class="wall" id="wall">
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2>Tonight’s wall</h2><span class="lbl" id="wallMeta"></span></div>
+    <div class="wallgrid" id="wallGrid"></div>
+    <div class="row" style="justify-content:flex-start"><button class="ghost" id="wallClose">Close</button><button class="ghost" id="wallClear">Clear the wall</button></div>
+  </div>
 </div>
 
-<footer>v3 · volume → size · pitch → height &amp; lightness · held sound → long strip · words → cut-out letters · silence → glue.<br>Material: Aimi's photographs, paintings and posters · rienespecial.com</footer>
+<footer>v4 · volume, pitch, brightness, speed, breath &amp; pauses → paper · words → cut-out letters · language → city · silence → glue.<br>Material: Aimi's photographs, paintings and posters · rienespecial.com</footer>
 
-<script>
-const SOURCES = {
-"cambridge__01-playground": "media/cambridge__01-playground.jpg",
-"cambridge__02-cafe": "media/cambridge__02-cafe.jpg",
-"cambridge__03-bicycles__part1": "media/cambridge__03-bicycles__part1.jpg",
-"cambridge__04-graffiti__part1": "media/cambridge__04-graffiti__part1.jpg",
-"cambridge__04-graffiti__part2": "media/cambridge__04-graffiti__part2.jpg",
-"cambridge__05-neon": "media/cambridge__05-neon.jpg",
-"cambridge__06-fence__part1": "media/cambridge__06-fence__part1.jpg",
-"cambridge__06-fence__part2": "media/cambridge__06-fence__part2.jpg",
-"cambridge__07-marina__part1": "media/cambridge__07-marina__part1.jpg",
-"cambridge__07-marina__part2": "media/cambridge__07-marina__part2.jpg",
-"cambridge__08-umbrella": "media/cambridge__08-umbrella.jpg",
-"hero-fountain": "media/hero-fountain.jpg",
-"hero-ocean": "media/hero-ocean.jpg",
-"hero-street": "media/hero-street.jpg",
-"hero-trails": "media/hero-trails.jpg",
-"hero-valley": "media/hero-valley.jpg",
-"hong-kong__01-mercer": "media/hong-kong__01-mercer.jpg",
-"hong-kong__02-crossing": "media/hong-kong__02-crossing.jpg",
-"hong-kong__03-alley": "media/hong-kong__03-alley.jpg",
-"hong-kong__04-canyon": "media/hong-kong__04-canyon.jpg",
-"hong-kong__05-seafood": "media/hong-kong__05-seafood.jpg",
-"hong-kong__06-tram": "media/hong-kong__06-tram.jpg",
-"metro__01-danse": "media/metro__01-danse.jpg",
-"metro__02-dingzhe": "media/metro__02-dingzhe.jpg",
-"metro__03-bio": "media/metro__03-bio.jpg",
-"metro__04-palimpseste": "media/metro__04-palimpseste.jpg",
-"metro__05-action": "media/metro__05-action.jpg",
-"mixed-media__01-blue-skai": "media/mixed-media__01-blue-skai.jpg",
-"mixed-media__02-seoul": "media/mixed-media__02-seoul.jpg",
-"mixed-media__03-dingge": "media/mixed-media__03-dingge.jpg",
-"mixed-media__04-crew": "media/mixed-media__04-crew.jpg",
-"mixed-media__adeleineeee__01-adeleineeee": "media/mixed-media__adeleineeee__01-adeleineeee.jpg",
-"mixed-media__contour__01-june": "media/mixed-media__contour__01-june.jpg",
-"mixed-media__contour__02-march": "media/mixed-media__contour__02-march.jpg",
-"mouvement__01-trails": "media/mouvement__01-trails.jpg",
-"mouvement__02-leaves": "media/mouvement__02-leaves.jpg",
-"mouvement__03-airport": "media/mouvement__03-airport.jpg",
-"mouvement__04-horizon": "media/mouvement__04-horizon.jpg",
-"mouvement__05-clouds": "media/mouvement__05-clouds.jpg",
-"pali-rain-ramp": "media/pali-rain-ramp.jpg",
-"poem-foliage": "media/poem-foliage.jpg",
-"session__01-mezzanine": "media/session__01-mezzanine.jpg",
-"session__02-guitars": "media/session__02-guitars.jpg",
-"session__03-velvet": "media/session__03-velvet.jpg",
-"session__04-tarantula": "media/session__04-tarantula.jpg",
-"soft-focus__02-bars": "media/soft-focus__02-bars.jpg",
-"soft-focus__03-water": "media/soft-focus__03-water.jpg",
-"soft-focus__04-window": "media/soft-focus__04-window.jpg",
-"soft-focus__05-intersection": "media/soft-focus__05-intersection.jpg",
-"soft-focus__06-pots": "media/soft-focus__06-pots.jpg",
-"soft-focus__07-trolley": "media/soft-focus__07-trolley.jpg",
-"soft-focus__08-barriers": "media/soft-focus__08-barriers.jpg",
-"soft-focus__09-fence": "media/soft-focus__09-fence.jpg",
-"soft-focus__10-climb": "media/soft-focus__10-climb.jpg",
-"soft-focus__11-silhouette": "media/soft-focus__11-silhouette.jpg"
-};
-
-// ---------- levers ----------
-const DEFAULTS = {
-  scatter: .2, letterMix: .8, wordSize: .5, wordsVsImages: .5,
-  edge: .55, tilt: .35, density: .5, layout: .45, color: .85,
-  stock: 'cream', sensitivity: .5, pitchHeight: true, sessionSec: 15,
-  series: null, // null = all series
-};
-const SERIES = {
-  'soft-focus': 'Soft Focus', 'session': 'Session', 'hong-kong': 'Hong Kong', 'cambridge': 'Cambridge',
-  'mouvement': 'Mouvement', 'metro': 'Metro posters', 'mixed-media': 'Mixed media', 'other': 'Heroes & strips',
-};
-const seriesOf = name => { const k = name.split('__')[0]; return SERIES[k] ? k : 'other'; };
-const STOCKS = { cream: '#f4f1ea', newsprint: '#dedbd3', kraft: '#cdb28a', black: '#161514' };
-const PRESETS = {
-  'Ransom note': { scatter: .3, letterMix: 1, wordSize: .6, wordsVsImages: .72, edge: .45, tilt: .3, density: .45, layout: .5, color: .9, stock: 'cream', series: null },
-  'Ilford':      { scatter: .08, letterMix: .15, wordSize: .4, wordsVsImages: .25, edge: .95, tilt: .22, density: .35, layout: .38, color: 0, stock: 'cream', series: ['soft-focus','session','mouvement','hong-kong','other'] },
-  'Metro':       { scatter: .65, letterMix: .85, wordSize: .55, wordsVsImages: .5, edge: .6, tilt: .85, density: .92, layout: .95, color: 1, stock: 'newsprint', series: ['metro','mixed-media','cambridge','hong-kong'] },
-  'Lettre':      { scatter: 0, letterMix: 0, wordSize: .95, wordsVsImages: .88, edge: .3, tilt: .08, density: .22, layout: .28, color: .55, stock: 'cream', series: null },
-};
-let P = { ...DEFAULTS };
-try { const saved = JSON.parse(localStorage.getItem('vc_defaults') || 'null'); if (saved) P = { ...DEFAULTS, ...saved }; } catch (e) {}
-let activePreset = null;
-
-
-// ---------- setup ----------
-const cv = document.getElementById('cv');
-const ctx = cv.getContext('2d');
-const W = cv.width, H = cv.height;
-const $ = id => document.getElementById(id);
-const SESSION_MS = 15000;
-
-let collageNo = 1;
-try { collageNo = parseInt(localStorage.getItem('vc_no') || '1', 10) || 1; } catch(e) {}
-const pad3 = n => String(n).padStart(3,'0');
-$('noLabel').textContent = 'No. ' + pad3(collageNo);
-
-// seeded-ish random helpers
-const rnd = (a=1,b) => b===undefined ? Math.random()*a : a + Math.random()*(b-a);
-const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
-const lerp = (a,b,t) => a + (b-a)*t;
-
-// ---------- paper background ----------
-const paperLayer = document.createElement('canvas'); paperLayer.width = W; paperLayer.height = H;
-const settled = document.createElement('canvas'); settled.width = W; settled.height = H;
-const sctx = settled.getContext('2d');
-const wordsLayer = document.createElement('canvas'); wordsLayer.width = W; wordsLayer.height = H;
-const wctx = wordsLayer.getContext('2d');
-function makeGrain(w, h, amt) {
-  const c = document.createElement('canvas'); c.width = w; c.height = h;
-  const g = c.getContext('2d'); const id = g.createImageData(w, h);
-  for (let i = 0; i < id.data.length; i += 4) {
-    const v = 128 + (Math.random() - .5) * amt;
-    id.data[i] = id.data[i+1] = id.data[i+2] = v; id.data[i+3] = 255;
-  }
-  g.putImageData(id, 0, 0); return c;
-}
-const grain = makeGrain(300, 300, 60);
-function paintPaper() {
-  const stockHex = STOCKS[P.stock] || STOCKS.cream;
-  const p = paperLayer.getContext('2d');
-  p.clearRect(0,0,W,H); p.fillStyle = stockHex; p.fillRect(0,0,W,H);
-  document.documentElement.style.setProperty('--paper-stock', stockHex);
-  p.globalAlpha = P.stock === 'black' ? .05 : .07; p.globalCompositeOperation = P.stock === 'black' ? 'screen' : 'multiply';
-  for (let y = 0; y < H; y += 300) for (let x = 0; x < W; x += 300) p.drawImage(grain, x, y);
-  p.globalAlpha = 1; p.globalCompositeOperation = 'source-over';
-  // soft vignette
-  const vg = p.createRadialGradient(W/2, H/2, W*0.35, W/2, H/2, W*0.95);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(60,45,20,0.10)');
-  p.fillStyle = vg; p.fillRect(0,0,W,H);
-}
-paintPaper();
-
-// ---------- sources ----------
-const sources = [];
-async function loadSources() {
-  await Promise.all(Object.entries(SOURCES).map(([name, url]) => new Promise(res => {
-    const img = new Image();
-    img.onload = () => {
-      // tiny luminance map for fast crop scoring
-      const mw = 48, mh = Math.max(4, Math.round(48 * img.height / img.width));
-      const c = document.createElement('canvas'); c.width = mw; c.height = mh;
-      const g = c.getContext('2d'); g.drawImage(img, 0, 0, mw, mh);
-      const d = g.getImageData(0, 0, mw, mh).data; const lum = new Float32Array(mw*mh);
-      let satSum = 0;
-      for (let i = 0; i < mw*mh; i++) {
-        const r = d[i*4], gg = d[i*4+1], b = d[i*4+2];
-        lum[i] = (0.299*r + 0.587*gg + 0.114*b) / 255;
-        const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b); satSum += mx ? (mx - mn) / mx : 0;
-      }
-      const sat = satSum / (mw*mh);
-      sources.push({ name, img, lum, mw, mh, sat, series: seriesOf(name), weight: (img.width*img.height) > 300000 ? 3 : 1 });
-      res();
-    };
-    img.onerror = res; img.src = url;
-  })));
-}
-function activeSources() {
-  const on = P.series && P.series.length ? sources.filter(s => P.series.includes(s.series)) : sources;
-  return on.length ? on : sources;
-}
-function sourceWeight(s) {
-  // color lever: low = favour black & white photographs, high = favour colourful ones
-  const bw = s.sat < .12 ? 1 : 0;
-  return s.weight * (1 + (1 - P.color) * 4 * bw + P.color * 2.5 * Math.min(1, s.sat * 2.5));
-}
-function pickSource() {
-  const pool = activeSources();
-  const total = pool.reduce((a, x) => a + sourceWeight(x), 0); let r = Math.random() * total;
-  for (const s of pool) { if ((r -= sourceWeight(s)) <= 0) return s; } return pool[0];
-}
-function cropLum(s, x, y, w, h) {
-  const x0 = Math.floor(x / s.img.width * s.mw), y0 = Math.floor(y / s.img.height * s.mh);
-  const x1 = Math.max(x0+1, Math.ceil((x+w) / s.img.width * s.mw)), y1 = Math.max(y0+1, Math.ceil((y+h) / s.img.height * s.mh));
-  let sum = 0, n = 0;
-  for (let j = y0; j < Math.min(y1, s.mh); j++) for (let i = x0; i < Math.min(x1, s.mw); i++) { sum += s.lum[j*s.mw+i]; n++; }
-  return n ? sum / n : .5;
-}
-// choose a crop whose brightness is close to target (0 dark .. 1 light)
-function pickCrop(aspect, targetLum, outW) {
-  let best = null, bestD = 1e9;
-  for (let k = 0; k < 10; k++) {
-    let s = pickSource();
-    if (s.img.width < outW * 1.2 && k < 9) { s = activeSources().reduce((a, b) => b.img.width > a.img.width ? b : a); if (Math.random() < .5) continue; }
-    const maxW = s.img.width, maxH = s.img.height;
-    let cw = rnd(.18, .6) * maxW, ch = cw / aspect;
-    if (ch > maxH * .95) { ch = maxH * rnd(.4, .95); cw = ch * aspect; }
-    cw = Math.min(cw, maxW); ch = Math.min(ch, maxH);
-    const cx = rnd(0, maxW - cw), cy = rnd(0, maxH - ch);
-    const L = cropLum(s, cx, cy, cw, ch);
-    const d = Math.abs(L - targetLum) + Math.random() * .08;
-    if (d < bestD) { bestD = d; best = { s, cx, cy, cw, ch }; }
-  }
-  return best;
-}
-
-// ---------- torn scrap rendering ----------
-function edgePoints(x0, y0, x1, y1, torn, step, amp = 5.5) {
-  // points along an edge (excluding end), with perpendicular jitter if torn
-  const len = Math.hypot(x1-x0, y1-y0), n = Math.max(2, Math.round(len / step));
-  const nx = -(y1-y0)/len, ny = (x1-x0)/len; const pts = []; let walk = 0;
-  for (let i = 0; i < n; i++) {
-    const t = i / n;
-    let off = 0;
-    if (torn) { walk = walk * .6 + rnd(-1, 1) * amp; off = walk + rnd(-amp*.3, amp*.3); }
-    else off = rnd(-.5, .5);
-    pts.push([lerp(x0, x1, t) + nx*off, lerp(y0, y1, t) + ny*off]);
-  }
-  return pts;
-}
-function tornPolygon(w, h, tornSides, amp = 5.5, step = 7) {
-  const c = [[0,0],[w,0],[w,h],[0,h]];
-  // slightly irregular corners for hand-cut feel
-  const cc = c.map(([x,y]) => [x + rnd(-w*.03, w*.03), y + rnd(-h*.03, h*.03)]);
-  let pts = [];
-  for (let i = 0; i < 4; i++) { const a = cc[i], b = cc[(i+1)%4]; pts = pts.concat(edgePoints(a[0], a[1], b[0], b[1], tornSides[i], step, amp)); }
-  return pts;
-}
-function pathPoly(g, pts, dx=0, dy=0, sc=1, cx=0, cy=0) {
-  g.beginPath();
-  pts.forEach(([x,y], i) => { const X = cx + (x-cx)*sc + dx, Y = cy + (y-cy)*sc + dy; i ? g.lineTo(X,Y) : g.moveTo(X,Y); });
-  g.closePath();
-}
-function desaturate(g, w, h, k) {
-  try {
-    const id = g.getImageData(0, 0, w, h), d = id.data;
-    for (let i = 0; i < d.length; i += 4) { const L = .299*d[i] + .587*d[i+1] + .114*d[i+2]; d[i] = L + (d[i]-L)*k; d[i+1] = L + (d[i+1]-L)*k; d[i+2] = L + (d[i+2]-L)*k; }
-    g.putImageData(id, 0, 0);
-  } catch (e) {}
-}
-function makeScrap(w, h, targetLum) {
-  w = Math.round(w); h = Math.round(h);
-  const padPx = 16; const c = document.createElement('canvas'); c.width = w + padPx*2; c.height = h + padPx*2;
-  const g = c.getContext('2d'); g.translate(padPx, padPx);
-  // edge lever: 0 = scissor-cut, 1 = every side hand-torn
-  const tornSides = [0,1,2,3].map(() => Math.random() < P.edge);
-  if (P.edge > .15 && !tornSides.some(Boolean)) tornSides[Math.floor(rnd(4))] = true;
-  const poly = tornPolygon(w, h, tornSides, lerp(2.5, 8, P.edge));
-  // white fibrous torn edge underneath
-  g.fillStyle = '#fbf8f0';
-  const fib = lerp(.6, 3.2, P.edge);
-  pathPoly(g, poly.map(([x,y]) => [x + rnd(-fib,fib), y + rnd(-fib,fib)]), 0, 0, lerp(1.008, 1.03, P.edge), w/2, h/2); g.fill();
-  // image clipped to the polygon
-  const crop = pickCrop(w / h, targetLum, w);
-  g.save(); pathPoly(g, poly, 0, 0, .985, w/2, h/2); g.clip();
-  g.fillStyle = '#efe9dd'; g.fillRect(-4, -4, w+8, h+8);
-  if (crop) {
-    const satF = P.color < .5 ? P.color * 2 : 1; // below the midpoint, colour drains out
-    if (satF < .999 && 'filter' in g) g.filter = `saturate(${satF.toFixed(2)}) contrast(${lerp(1.12, 1, satF).toFixed(2)})`;
-    g.drawImage(crop.s.img, crop.cx, crop.cy, crop.cw, crop.ch, 0, 0, w, h);
-    g.filter = 'none';
-    if (satF < .999 && !('filter' in g)) desaturate(g, w, h, satF);
-  }
-  // paper grain + slight warm aging
-  g.globalCompositeOperation = 'multiply'; g.globalAlpha = .18;
-  g.drawImage(grain, rnd(0,100), rnd(0,100), 200, 200, 0, 0, w, h);
-  g.globalAlpha = .06; g.fillStyle = '#c9a66b'; g.fillRect(0, 0, w, h);
-  g.restore();
-  return { canvas: c, pad: padPx, w, h, src: crop ? crop.s.name : '' };
-}
-
-// ---------- scraps on the page ----------
-let scraps = [];   // animating
-let placedCount = 0;
-function pushScrap(s, x, y, rot, dur = 380) {
-  scraps.push({ ...s, x, y, rot, t0: performance.now(), dur });
-}
-function addScrap({ x, y, w, h, rot, lum }) {
-  pushScrap(makeScrap(w, h, lum), x, y, rot);
-  placedCount++;
-}
-function drawScrap(g, s, k) {
-  // k: 0..1 animation progress
-  const e = 1 - Math.pow(1 - k, 3);
-  const scale = lerp(1.22, 1, e), lift = lerp(-26, 0, e);
-  g.save();
-  g.translate(s.x, s.y + lift); g.rotate(s.rot); g.scale(scale, scale);
-  g.shadowColor = `rgba(40,30,15,${lerp(.18,.32,e)})`;
-  g.shadowBlur = lerp(34, 7, e); g.shadowOffsetX = lerp(10, 2.5, e); g.shadowOffsetY = lerp(22, 4, e);
-  g.globalAlpha = Math.min(1, k * 3);
-  g.drawImage(s.canvas, -s.w/2 - s.pad, -s.h/2 - s.pad);
-  g.restore();
-}
-function render() {
-  const now = performance.now();
-  scraps = scraps.filter(s => {
-    const k = clamp((now - s.t0) / s.dur, 0, 1);
-    if (k >= 1) { drawScrap(s.word ? wctx : sctx, s, 1); return false; }
-    return true;
-  });
-  ctx.drawImage(paperLayer, 0, 0);
-  ctx.drawImage(settled, 0, 0);
-  for (const s of scraps) if (!s.word) drawScrap(ctx, s, clamp((now - s.t0) / s.dur, 0, 1));
-  ctx.drawImage(wordsLayer, 0, 0);
-  for (const s of scraps) if (s.word) drawScrap(ctx, s, clamp((now - s.t0) / s.dur, 0, 1));
-}
-
-// ---------- cut-out words ----------
-const LETTER_STYLES = [
-  { font: '"Instrument Serif", "Songti SC", "Noto Serif", Georgia, serif', bg: '#fbf8f0', fg: '#141414' },
-  { font: 'italic "Instrument Serif", "Songti SC", Georgia, serif', bg: '#efe3c8', fg: '#2a1d10' },
-  { font: '600 "IBM Plex Mono", "PingFang SC", "Apple SD Gothic Neo", monospace', bg: '#141414', fg: '#f4f1ea' },
-  { font: '900 "Arial Black", "Helvetica Neue", "PingFang SC", "Apple SD Gothic Neo", sans-serif', bg: '#f4f1ea', fg: '#1f2e8c' },
-  { font: '700 Georgia, "Times New Roman", "Songti SC", serif', bg: '#d9d3c4', fg: '#141414' },
-  { font: '800 "Helvetica Neue", Arial, "PingFang SC", "Apple SD Gothic Neo", sans-serif', bg: '#c0262d', fg: '#fbf8f0' },
-  { font: '"Courier New", "IBM Plex Mono", monospace', bg: '#fbf8f0', fg: '#141414' },
-];
-const SHAPED = /[֐-ࣿऀ-෿฀-໿က-႟ក-៿]/; // scripts that must not be split
-function graphemes(t) {
-  try { return [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(t)].map(x => x.segment); }
-  catch (e) { return Array.from(t); }
-}
-function makeWord(text, size) {
-  const units = SHAPED.test(text) ? [text] : graphemes(text);
-  const tmp = document.createElement('canvas').getContext('2d');
-  const tiles = units.map(u => {
-    const st = Math.random() < P.letterMix ? LETTER_STYLES[Math.floor(rnd(LETTER_STYLES.length))] : LETTER_STYLES[0];
-    const fs = size * rnd(.82, 1.22);
-    const font = st.font.replace(/^((?:italic\s+)?(?:\d{3}\s+)?)/, `$1${Math.round(fs)}px `);
-    tmp.font = font;
-    const tw = Math.max(tmp.measureText(u).width, fs * .35);
-    const sc = P.scatter, rr = lerp(.03, .55, sc);
-    return { u, st, fs, font, w: tw + fs * .34, h: fs * 1.3, rot: rnd(-rr, rr), dy: rnd(-1, 1) * fs * lerp(.04, .9, sc), dx: rnd(0, 1) * fs * lerp(0, .9, sc) };
-  });
-  const gap = size * lerp(.03, .12, P.scatter);
-  const W2 = tiles.reduce((a, t) => a + t.w + gap + t.dx, 0) + 30, H2 = Math.max(...tiles.map(t => t.h)) + size * lerp(.5, 2.2, P.scatter) + 30;
-  const c = document.createElement('canvas'); c.width = Math.ceil(W2); c.height = Math.ceil(H2);
-  const g = c.getContext('2d');
-  let x = 15;
-  for (const t of tiles) {
-    g.save(); g.translate(x + t.dx + t.w / 2, H2 / 2 + t.dy); g.rotate(t.rot);
-    g.shadowColor = 'rgba(40,30,15,.22)'; g.shadowBlur = 3; g.shadowOffsetY = 1.5;
-    const poly = tornPolygon(t.w, t.h, [0,1,2,3].map(() => Math.random() < .35), 1.6, 5);
-    pathPoly(g, poly, -t.w / 2, -t.h / 2); g.fillStyle = t.st.bg; g.fill();
-    g.shadowColor = 'transparent';
-    g.globalCompositeOperation = 'multiply'; g.globalAlpha = .12;
-    g.save(); pathPoly(g, poly, -t.w / 2, -t.h / 2); g.clip(); g.drawImage(grain, -t.w / 2, -t.h / 2, t.w, t.h); g.restore();
-    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
-    g.font = t.font; g.fillStyle = t.st.fg; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(t.u, 0, t.fs * .04);
-    g.restore();
-    x += t.w + gap + t.dx;
-  }
-  return { canvas: c, pad: 0, w: c.width, h: c.height };
-}
-let wordsPlaced = 0, lastLoud = .4, wordRects = [];
-const heardLangs = new Map();
-function placeWord(text, lang) {
-  text = (text || '').trim(); if (!text) return;
-  if (lang) heardLangs.set(lang, (heardLangs.get(lang) || 0) + 1);
-  if (wordsPlaced >= Math.round(lerp(6, 36, P.wordsVsImages))) return;
-  if (Math.random() > clamp(P.wordsVsImages * 2.2, 0, 1)) return; // "all paper" keeps most words out
-  const size = lerp(lerp(26, 62, P.wordSize), lerp(56, 150, P.wordSize), lastLoud) * (wordsPlaced > 14 ? .82 : 1);
-  const s = makeWord(text, size);
-  if (s.w > W * .9) { const k = (W * .9) / s.w; const c2 = document.createElement('canvas'); c2.width = s.w * k; c2.height = s.h * k; c2.getContext('2d').drawImage(s.canvas, 0, 0, c2.width, c2.height); s.canvas = c2; s.w = c2.width; s.h = c2.height; }
-  // try a few spots near the cluster and take the one that overlaps earlier words least
-  let best = null, bestO = Infinity;
-  for (let k = 0; k < 14; k++) {
-    const cx = clamp(cluster.x + rnd(-300, 300), s.w / 2 + 30, W - s.w / 2 - 30);
-    const cy = clamp(cluster.y + rnd(-320, 320), s.h / 2 + 40, H - s.h / 2 - 140);
-    let o = 0;
-    for (const r of wordRects) {
-      const ix = Math.max(0, Math.min(cx + s.w/2, r.x + r.w/2) - Math.max(cx - s.w/2, r.x - r.w/2));
-      const iy = Math.max(0, Math.min(cy + s.h/2, r.y + r.h/2) - Math.max(cy - s.h/2, r.y - r.h/2));
-      o += ix * iy;
-    }
-    o += Math.hypot(cx - cluster.x, cy - cluster.y) * 2; // stay near the gesture
-    if (o < bestO) { bestO = o; best = [cx, cy]; }
-  }
-  const [x, y] = best;
-  wordRects.push({ x, y, w: s.w * .8, h: s.h * .7 });
-  const wr = lerp(.02, .3, Math.max(P.tilt, P.scatter * .8));
-  s.word = true; pushScrap(s, x, y, rnd(-wr, wr), 460);
-  wordsPlaced++;
-  $('heard').textContent = '“' + text + '”';
-}
-function langNames() {
-  const codes = [...heardLangs.entries()].sort((a, b) => b[1] - a[1]).map(x => x[0].split('-')[0]);
-  const uniq = [...new Set(codes)];
-  let dn = null; try { dn = new Intl.DisplayNames(['en'], { type: 'language' }); } catch (e) {}
-  return uniq.slice(0, 3).map(c => (dn && dn.of(c)) || c);
-}
-
-// ---------- Deepgram (live words) ----------
-let dgKey = ''; try { dgKey = localStorage.getItem('vc_dg') || ''; } catch (e) {}
-let dg = null, dgTap = null, dgMute = null, pcmBuf = [], pcmLen = 0, dgSR = 48000, dgSendTimer = null;
-function setWordsStatus(t) { $('wordsStatus').textContent = t; }
-function refreshKeyUI() {
-  $('keyToggle').textContent = dgKey ? 'Words: on · change Deepgram key' : 'Words: off · add Deepgram key';
-  setWordsStatus(dgKey ? 'words: ready' : 'words: off (no key)');
-}
-async function dgStart(sourceNode) {
-  if (!dgKey) return;
-  dgSR = audioCtx.sampleRate; pcmBuf = []; pcmLen = 0;
-  const url = 'wss://api.deepgram.com/v1/listen?model=nova-3&language=multi&interim_results=true&endpointing=250&encoding=linear16&sample_rate=16000&channels=1';
-  try { dg = new WebSocket(url, ['token', dgKey]); } catch (e) { dg = null; setWordsStatus('words: could not connect'); return; }
-  dg.binaryType = 'arraybuffer';
-  setWordsStatus('words: connecting…');
-  dg.onopen = () => setWordsStatus('words: listening');
-  dg.onerror = () => setWordsStatus('words: connection failed (check key / wifi)');
-  dg.onmessage = ev => {
-    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
-    if (m.type !== 'Results' || !m.is_final) return;
-    const alt = m.channel && m.channel.alternatives && m.channel.alternatives[0]; if (!alt) return;
-    const fallbackLang = (alt.languages && alt.languages[0]) || null;
-    for (const w of (alt.words || [])) placeWord(w.punctuated_word || w.word, w.language || fallbackLang);
-  };
-  // tap raw audio
-  try {
-    const code = "class T extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('pcm-tap',T)";
-    await audioCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], { type: 'application/javascript' })));
-    dgTap = new AudioWorkletNode(audioCtx, 'pcm-tap');
-    dgTap.port.onmessage = e => { pcmBuf.push(e.data); pcmLen += e.data.length; };
-  } catch (e) {
-    dgTap = audioCtx.createScriptProcessor(4096, 1, 1);
-    dgTap.onaudioprocess = e => { const d = e.inputBuffer.getChannelData(0).slice(0); pcmBuf.push(d); pcmLen += d.length; };
-  }
-  dgMute = audioCtx.createGain(); dgMute.gain.value = 0;
-  sourceNode.connect(dgTap); dgTap.connect(dgMute); dgMute.connect(audioCtx.destination);
-  dgSendTimer = setInterval(dgFlush, 100);
-}
-function dgFlush() {
-  if (!pcmLen) return;
-  const all = new Float32Array(pcmLen); let o = 0; for (const b of pcmBuf) { all.set(b, o); o += b.length; }
-  pcmBuf = []; pcmLen = 0;
-  if (!dg || dg.readyState !== 1) return;
-  const ratio = dgSR / 16000, n = Math.floor(all.length / ratio), out = new Int16Array(n);
-  for (let i = 0; i < n; i++) { const v = all[Math.floor(i * ratio)]; out[i] = Math.max(-1, Math.min(1, v)) * 0x7fff; }
-  dg.send(out.buffer);
-}
-async function dgStop() {
-  if (dgSendTimer) { clearInterval(dgSendTimer); dgSendTimer = null; }
-  try { dgTap && dgTap.disconnect(); dgMute && dgMute.disconnect(); } catch (e) {}
-  if (!dg) return;
-  dgFlush();
-  const sock = dg; dg = null;
-  if (sock.readyState === 1) {
-    try { sock.send(JSON.stringify({ type: 'CloseStream' })); } catch (e) {}
-    await new Promise(r => { const t = setTimeout(r, 1800); sock.addEventListener('close', () => { clearTimeout(t); r(); }); });
-  }
-  try { sock.close(); } catch (e) {}
-}
-
-// ---------- audio analysis ----------
-let audioCtx, analyser, buf, srcNode, mediaStream, mediaEl;
-let gate = 0.02, floor = 0.01;
-function rmsOf(b) { let s = 0; for (let i = 0; i < b.length; i++) s += b[i]*b[i]; return Math.sqrt(s / b.length); }
-// autocorrelation pitch (Hz) or -1
-function pitchOf(b, sr) {
-  let SIZE = b.length, r1 = 0, r2 = SIZE - 1, thres = 0.2;
-  for (let i = 0; i < SIZE/2; i++) if (Math.abs(b[i]) < thres) { r1 = i; break; }
-  for (let i = 1; i < SIZE/2; i++) if (Math.abs(b[SIZE-i]) < thres) { r2 = SIZE - i; break; }
-  const x = b.slice(r1, r2); SIZE = x.length; if (SIZE < 256) return -1;
-  const minLag = Math.floor(sr / 900), maxLag = Math.min(SIZE - 1, Math.floor(sr / 65));
-  const c = new Float32Array(maxLag + 1);
-  for (let lag = 0; lag <= maxLag; lag++) { let s = 0; for (let i = 0; i < SIZE - lag; i++) s += x[i] * x[i+lag]; c[lag] = s; }
-  let d = minLag; while (d < maxLag && c[d] > c[d+1]) d++;
-  let maxv = -1, maxpos = -1;
-  for (let i = d; i <= maxLag; i++) if (c[i] > maxv) { maxv = c[i]; maxpos = i; }
-  if (maxpos <= 0 || maxv < c[0] * 0.3) return -1;
-  let T0 = maxpos; const a = c[T0-1] || 0, bb = c[T0], cc = c[T0+1] || 0;
-  const A = (a + cc - 2*bb) / 2, B = (cc - a) / 2; if (A) T0 = T0 - B / (2*A);
-  return sr / T0;
-}
-
-// ---------- session state ----------
-let state = 'idle', tStart = 0, voicedMs = 0, runStart = 0, lastSpawn = 0, lastT = 0;
-let pitchHist = [], lastPitch = 180, totalVoiced = 0, endTimer = null, sessionMs = SESSION_MS;
-
-function resetCanvas() {
-  sctx.clearRect(0,0,W,H); wctx.clearRect(0,0,W,H); scraps = []; placedCount = 0; totalVoiced = 0; wordsPlaced = 0; wordRects = []; heardLangs.clear(); $('heard').textContent = '';
-}
-function setStatus(s) { $('status').textContent = s; }
-function setRing(f) { $('ringFg').setAttribute('stroke-dashoffset', String(106.8 * (1 - clamp(f,0,1)))); }
-
-async function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') await audioCtx.resume();
-  analyser = audioCtx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0;
-  buf = new Float32Array(analyser.fftSize);
-}
-
-async function startMic() {
-  $('msg').textContent = '';
-  try {
-    await ensureAudio();
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: false } });
-  } catch (e) {
-    $('msg').textContent = 'The microphone isn’t available here. Open this page as a file on your laptop in Chrome, or tap “Use a voice recording”: on a phone you can choose Take Video, speak, and use it.';
-    return;
-  }
-  srcNode = audioCtx.createMediaStreamSource(mediaStream); srcNode.connect(analyser);
-  await dgStart(srcNode);
-  sessionMs = (P.sessionSec || 15) * 1000;
-  begin(true);
-}
-
-async function startFile(file) {
-  $('msg').textContent = '';
-  await ensureAudio();
-  if (mediaEl) { mediaEl.pause(); mediaEl.remove(); }
-  mediaEl = document.createElement('video'); mediaEl.src = URL.createObjectURL(file); mediaEl.playsInline = true; mediaEl.setAttribute('playsinline','');
-  document.body.appendChild(mediaEl); mediaEl.style.display = 'none';
-  srcNode = audioCtx.createMediaElementSource(mediaEl);
-  srcNode.connect(analyser); analyser.connect(audioCtx.destination);
-  await dgStart(srcNode);
-  try { await mediaEl.play(); } catch (e) { $('msg').textContent = 'Couldn’t play that file. Try another recording.'; return; }
-  const dur = isFinite(mediaEl.duration) ? mediaEl.duration * 1000 : 20000;
-  sessionMs = Math.min(dur, 30000);
-  mediaEl.onended = () => finish();
-  begin(false);
-}
-
-function begin(calibrate) {
-  resetCanvas();
-  $('intro').classList.add('hidden'); $('after').classList.remove('show'); $('controls').classList.add('hidden');
-  floor = 0.008; gate = 0.02;
-  if (calibrate) {
-    state = 'calibrating'; setStatus('quiet… listening'); const samples = []; const t0 = performance.now();
-    const cal = () => {
-      analyser.getFloatTimeDomainData(buf); samples.push(rmsOf(buf));
-      showLevel(samples[samples.length-1]);
-      if (performance.now() - t0 < 1200) return requestAnimationFrame(cal);
-      samples.sort((a,b) => a-b); floor = samples[Math.floor(samples.length * .6)] || .008;
-      gate = gateFrom(floor);
-      go();
-    };
-    cal();
-  } else go();
-}
-function go() {
-  state = 'listening'; tStart = performance.now(); lastT = tStart; runStart = 0; voicedMs = 0; lastSpawn = 0;
-  setStatus('speak'); loop();
-}
-function showLevel(r) {
-  $('lvl').style.width = (clamp(r / 0.25, 0, 1) * 100) + '%';
-  $('gateMark').style.left = (clamp(gate / 0.25, 0, 1) * 100) + '%';
-}
-
-function loop() {
-  if (state !== 'listening') return;
-  const now = performance.now(), dt = now - lastT; lastT = now;
-  analyser.getFloatTimeDomainData(buf);
-  const r = rmsOf(buf);
-  showLevel(r);
-  // adaptive noise floor (only drifts while quiet)
-  if (r < gate) { floor = floor * .995 + r * .005; gate = gateFrom(floor); }
-  const voiced = r > gate;
-  lastLoud = lastLoud * .9 + loudOf(r) * .1;
-  if (voiced) {
-    const p = pitchOf(buf, audioCtx.sampleRate);
-    if (p > 65 && p < 900) { pitchHist.push(p); if (pitchHist.length > 7) pitchHist.shift(); }
-    const sorted = [...pitchHist].sort((a,b) => a-b); if (sorted.length) lastPitch = sorted[Math.floor(sorted.length/2)];
-    if (!runStart) runStart = now;
-    voicedMs = now - runStart; totalVoiced += dt;
-    spawnFrom(r, lastPitch, voicedMs, now);
-    setStatus('tearing…');
-  } else {
-    if (runStart && voicedMs > 650) placeStrip(lastPitch, voicedMs, r); // close a held sound with a long strip
-    runStart = 0; voicedMs = 0;
-    setStatus('listening');
-  }
-  const f = (now - tStart) / sessionMs; setRing(f);
-  if (f >= 1) return finish();
-  requestAnimationFrame(loop);
-}
-
-// pitch -> 0 (low) .. 1 (high), log scale 80..500 Hz
-// sensitivity lever: 0 = needs a shout, 1 = hears a whisper
-const gateFrom = fl => Math.max(lerp(.03, .006, P.sensitivity), fl * lerp(3.6, 1.7, P.sensitivity));
-const loudOf = r => clamp((r - gate) / (lerp(.32, .12, P.sensitivity) - gate), 0, 1);
-const pitchNorm = p => clamp((Math.log(p) - Math.log(80)) / (Math.log(500) - Math.log(80)), 0, 1);
-let cluster = { x: W/2, y: H/2 };
-function spawnFrom(r, pitch, held, now) {
-  const loud = loudOf(r);
-  const interval = lerp(230, 95, loud) * lerp(2.6, .45, P.density);
-  if (now - lastSpawn < interval) return;
-  lastSpawn = now;
-  if (held > 650) return; // held sounds become strips when they end
-  if (Math.random() > clamp((1 - P.wordsVsImages) * 2.2, .06, 1)) return; // "all words" keeps most paper out
-  const pn = P.pitchHeight ? pitchNorm(pitch) : Math.random();
-  const cap = Math.round(lerp(40, 160, P.density));
-  const area = lerp(70*70, 430*430, Math.pow(loud, 0.8)) * lerp(.75, 1.05, P.density) * (placedCount > cap ? .55 : 1);
-  const aspect = rnd(.55, 1.8); const w = Math.sqrt(area * aspect), h = area / w;
-  // layout lever: centered cluster <-> edge to edge
-  const targetY = lerp(H * .86, H * .14, pn);
-  const drift = lerp(70, 360, P.layout), pull = lerp(.3, 0, P.layout), m = lerp(330, 120, P.layout);
-  cluster.x = clamp(lerp(cluster.x, W/2, pull) + rnd(-drift, drift), m, W - m);
-  cluster.y = clamp(lerp(cluster.y, lerp(targetY, H/2, pull), .5) + rnd(-drift*.55, drift*.55), m * .8, H - m * .8);
-  const tr = lerp(.01, .55, P.tilt);
-  addScrap({ x: clamp(cluster.x + rnd(-60,60), w*.42 + 30, W - w*.42 - 30), y: clamp(cluster.y, h*.42 + 40, H - h*.42 - 130), w, h, rot: rnd(-tr, tr), lum: lerp(.18, .92, pn) });
-}
-function placeStrip(pitch, held, r) {
-  if (P.wordsVsImages > .9 && Math.random() < .7) return;
-  const pn = P.pitchHeight ? pitchNorm(pitch) : Math.random();
-  const len = clamp(lerp(380, 1150, (held - 650) / 2600), 300, 1150);
-  const th = rnd(46, 92);
-  const tr = lerp(.03, .6, P.tilt);
-  addScrap({ x: clamp(cluster.x, len/2.6, W - len/2.6), y: lerp(H * .84, H * .16, pn) + rnd(-50, 50), w: len, h: th, rot: rnd(-tr, tr), lum: lerp(.2, .9, pn) });
-}
-
-async function finish() {
-  if (state !== 'listening') return;
-  state = 'settling'; setStatus('gluing…'); setRing(1);
-  if (mediaEl) { mediaEl.pause(); }
-  setStatus('gluing…'); await dgStop();
-  try { srcNode && srcNode.disconnect(); analyser && analyser.disconnect(); } catch (e) {}
-  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
-  if (placedCount === 0 && wordsPlaced === 0) {
-    // nothing heard: one quiet scrap so the page isn't empty
-    addScrap({ x: W/2, y: H/2, w: 260, h: 180, rot: rnd(-.1,.1), lum: .7 });
-  }
-  await new Promise(r => setTimeout(r, 700));
-  await drawCaption();
-  state = 'done'; setStatus('done'); showLevel(0); refreshKeyUI();
-  $('after').classList.add('show');
-  try { localStorage.setItem('vc_no', String(collageNo + 1)); } catch (e) {}
-}
-
-async function drawCaption() {
-  try { await document.fonts.load('22px "IBM Plex Mono"'); } catch (e) {}
-  // commit anything still animating
-  for (const s of scraps) drawScrap(s.word ? wctx : sctx, s, 1); scraps = [];
-  sctx.drawImage(wordsLayer, 0, 0); wctx.clearRect(0,0,W,H);
-  const secs = Math.round(totalVoiced / 1000);
-  const d = new Date();
-  const L = langNames();
-  const text = `No. ${pad3(collageNo)}.  ${L.length ? 'Spoken in ' + L.join(', ') + ',' : 'Spoken'} ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}.  San Francisco. ${d.getFullYear()}.`;
-  // caption on a small pasted label
-  sctx.save();
-  sctx.font = '22px "IBM Plex Mono", ui-monospace, monospace';
-  const tw = sctx.measureText(text).width;
-  const lw = tw + 44, lh = 56, lx = W - lw - 56, ly = H - lh - 52;
-  sctx.translate(lx + lw/2, ly + lh/2); sctx.rotate(-0.012);
-  sctx.shadowColor = 'rgba(40,30,15,.25)'; sctx.shadowBlur = 6; sctx.shadowOffsetY = 2;
-  sctx.fillStyle = '#fbf9f3'; sctx.fillRect(-lw/2, -lh/2, lw, lh);
-  sctx.shadowColor = 'transparent';
-  sctx.fillStyle = '#141414'; sctx.textBaseline = 'middle'; sctx.fillText(text, -lw/2 + 22, 1);
-  sctx.restore();
-}
-
-// ---------- save ----------
-function exportPNG() {
-  const out = document.createElement('canvas'); out.width = W; out.height = H;
-  const g = out.getContext('2d'); g.drawImage(paperLayer, 0, 0); g.drawImage(settled, 0, 0);
-  return out.toDataURL('image/png');
-}
-
-// ---------- wiring ----------
-$('micBtn').onclick = () => startMic();
-let pendingFile = null;
-$('fileIn').onchange = e => {
-  const f = e.target.files && e.target.files[0]; if (!f) return;
-  pendingFile = f; $('fileName').textContent = f.name.length > 18 ? 'this recording' : f.name;
-  $('playFile').style.display = 'inline-block'; e.target.value = '';
-};
-$('playFile').onclick = () => { if (pendingFile) { $('playFile').style.display = 'none'; startFile(pendingFile); pendingFile = null; } };
-$('againBtn').onclick = () => {
-  collageNo++; $('noLabel').textContent = 'No. ' + pad3(collageNo);
-  resetCanvas(); setRing(0); setStatus('ready'); showLevel(0);
-  state = 'idle'; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
-  if (resetAfter) { P = { ...savedDefaults }; markPreset(null); syncAll(); }
-};
-$('saveBtn').onclick = () => {
-  const url = exportPNG(); $('saveImg').src = url;
-  const a = $('dlLink'); a.href = url; a.download = `collage-${pad3(collageNo)}.png`;
-  a.style.display = location.protocol === 'file:' || location.hostname === 'localhost' ? 'inline-block' : 'none';
-  $('saveview').classList.add('show');
-};
-$('closeSave').onclick = () => $('saveview').classList.remove('show');
-
-$('keyToggle').onclick = () => { $('keyPanel').classList.toggle('show'); $('keyIn').value = ''; $('keyIn').focus(); };
-$('keySave').onclick = () => {
-  const v = $('keyIn').value.trim(); if (!v) return;
-  dgKey = v; try { localStorage.setItem('vc_dg', v); } catch (e) {}
-  $('keyIn').value = ''; $('keyPanel').classList.remove('show'); refreshKeyUI();
-};
-$('keyClear').onclick = () => { dgKey = ''; try { localStorage.removeItem('vc_dg'); } catch (e) {} $('keyPanel').classList.remove('show'); refreshKeyUI(); };
-refreshKeyUI();
-
-// ---------- levers UI ----------
-const LEVERS = {
-  scatter:       ['Scatter',  'tidy line', 'letters flying'],
-  letterMix:     ['Letters',  'one typeface', 'every letter different'],
-  wordSize:      ['Word size','whisper-small', 'poster-big'],
-  wordsVsImages: ['Mix',      'all paper', 'all words'],
-  edge:          ['Edge',     'scissor-cut', 'hand-torn'],
-  tilt:          ['Tilt',     'straight', 'wild'],
-  density:       ['Density',  'airy', 'packed'],
-  layout:        ['Layout',   'centred', 'edge to edge'],
-  color:         ['Colour',   'black & white', 'full colour'],
-  sensitivity:   ['Hearing',  'needs a shout', 'hears a whisper'],
-};
-const leverInputs = {}; // key -> [inputs]
-function leverEl(key) {
-  const [name, l, r] = LEVERS[key];
-  const d = document.createElement('div'); d.className = 'lever';
-  d.innerHTML = `<span class="name">${name}</span><input type="range" min="0" max="100" step="1"><span class="ends"><span>${l}</span><span>${r}</span></span>`;
-  const inp = d.querySelector('input');
-  inp.value = Math.round(P[key] * 100);
-  inp.oninput = () => { setLever(key, inp.value / 100, inp); markPreset(null); };
-  (leverInputs[key] = leverInputs[key] || []).push(inp);
-  return d;
-}
-function setLever(key, v, from) {
-  P[key] = v;
-  for (const i of (leverInputs[key] || [])) if (i !== from) i.value = Math.round(v * 100);
-}
-function syncAll() {
-  for (const k in leverInputs) for (const i of leverInputs[k]) i.value = Math.round(P[k] * 100);
-  $('pitchHeight').checked = !!P.pitchHeight;
-  $('sessionSec').value = String(P.sessionSec || 15);
-  document.querySelectorAll('#stockChips .chip').forEach(c => c.classList.toggle('on', c.dataset.k === P.stock));
-  document.querySelectorAll('#seriesBox input').forEach(c => c.checked = !P.series || P.series.includes(c.value));
-  if (state === 'idle') paintPaper();
-}
-function presetChip(name, parent) {
-  const b = document.createElement('button'); b.className = 'chip'; b.dataset.p = name;
-  const blurbs = { 'Ransom note': 'mixed type, tidy words', 'Ilford': 'black & white, torn, airy', 'Metro': 'posters, packed, wild', 'Lettre': 'big serif words, few images' };
-  b.innerHTML = `${name}<small>${blurbs[name]}</small>`;
-  b.onclick = () => applyPreset(name);
-  parent.appendChild(b);
-}
-function applyPreset(name) {
-  P = { ...P, ...PRESETS[name] }; activePreset = name; markPreset(name); syncAll();
-}
-function markPreset(name) {
-  activePreset = name;
-  document.querySelectorAll('.chip[data-p]').forEach(c => c.classList.toggle('on', c.dataset.p === name));
-}
-Object.keys(PRESETS).forEach(n => { presetChip(n, $('presetChips')); presetChip(n, $('studioPresets')); });
-['scatter', 'color', 'density'].forEach(k => $('guestLevers').appendChild(leverEl(k)));
-['scatter', 'letterMix', 'wordSize', 'wordsVsImages'].forEach(k => $('lvWords').appendChild(leverEl(k)));
-['edge', 'tilt', 'density', 'layout'].forEach(k => $('lvPaper').appendChild(leverEl(k)));
-['color'].forEach(k => $('lvColor').appendChild(leverEl(k)));
-['sensitivity'].forEach(k => $('lvVoice').appendChild(leverEl(k)));
-Object.entries(SERIES).forEach(([k, label]) => {
-  const l = document.createElement('label'); l.className = 'ck';
-  l.innerHTML = `<input type="checkbox" value="${k}"> ${label}`;
-  l.querySelector('input').onchange = () => {
-    const on = [...document.querySelectorAll('#seriesBox input')].filter(i => i.checked).map(i => i.value);
-    P.series = on.length === Object.keys(SERIES).length ? null : on; markPreset(null);
-  };
-  $('seriesBox').appendChild(l);
-});
-Object.keys(STOCKS).forEach(k => {
-  const b = document.createElement('button'); b.className = 'chip'; b.dataset.k = k; b.textContent = k;
-  b.onclick = () => { P.stock = k; markPreset(null); syncAll(); };
-  $('stockChips').appendChild(b);
-});
-$('pitchHeight').onchange = e => { P.pitchHeight = e.target.checked; };
-$('sessionSec').onchange = e => { P.sessionSec = parseInt(e.target.value, 10); };
-let resetAfter = true; try { resetAfter = localStorage.getItem('vc_resetAfter') !== '0'; } catch (e) {}
-$('resetAfter').checked = resetAfter;
-$('resetAfter').onchange = e => { resetAfter = e.target.checked; try { localStorage.setItem('vc_resetAfter', resetAfter ? '1' : '0'); } catch (x) {} };
-let savedDefaults = { ...P };
-$('saveDefaults').onclick = () => { savedDefaults = { ...P }; try { localStorage.setItem('vc_defaults', JSON.stringify(P)); } catch (e) {} $('studioNote').textContent = 'Saved. Every guest now starts from these settings.'; };
-$('resetDefaults').onclick = () => { P = { ...DEFAULTS }; savedDefaults = { ...P }; try { localStorage.removeItem('vc_defaults'); } catch (e) {} markPreset(null); syncAll(); $('studioNote').textContent = 'Back to factory settings.'; };
-const openStudio = () => { syncAll(); $('studio').classList.add('show'); };
-$('closeStudio').onclick = () => $('studio').classList.remove('show');
-$('studio').onclick = e => { if (e.target.id === 'studio') $('studio').classList.remove('show'); };
-document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
-  if (e.key === 's' || e.key === 'S') { $('studio').classList.contains('show') ? $('studio').classList.remove('show') : openStudio(); }
-  if (e.key === 'Escape') $('studio').classList.remove('show');
-});
-let taps = [];
-$('noLabel').addEventListener('click', () => { const t = performance.now(); taps = taps.filter(x => t - x < 700); taps.push(t); if (taps.length >= 3) { taps = []; openStudio(); } });
-
-// ---------- MIDI knobs ----------
-const MIDI_ORDER = ['scatter', 'color', 'density', 'letterMix', 'wordSize', 'wordsVsImages', 'edge', 'tilt'];
-let midiMap = {}; try { midiMap = JSON.parse(localStorage.getItem('vc_midi') || '{}'); } catch (e) {}
-$('midiBtn').onclick = async () => {
-  if (!navigator.requestMIDIAccess) { $('midiNote').textContent = 'This browser has no Web MIDI. Use Chrome on a laptop.'; return; }
-  try {
-    const access = await navigator.requestMIDIAccess();
-    const hook = () => access.inputs.forEach(inp => { inp.onmidimessage = onMidi; });
-    hook(); access.onstatechange = hook;
-    const n = [...access.inputs.values()].length;
-    $('midiNote').textContent = n ? `Connected (${n} device${n > 1 ? 's' : ''}). Turn knobs to assign: ${MIDI_ORDER.map(k => LEVERS[k][0]).join(' · ')}.` : 'No MIDI device found. Plug one in and press again.';
-  } catch (e) { $('midiNote').textContent = 'MIDI permission was refused.'; }
-};
-function onMidi(ev) {
-  const [st, cc, val] = ev.data; if ((st & 0xf0) !== 0xb0) return; // control change only
-  let key = midiMap[cc];
-  if (!key) {
-    const used = Object.values(midiMap); key = MIDI_ORDER.find(k => !used.includes(k)); if (!key) return;
-    midiMap[cc] = key; try { localStorage.setItem('vc_midi', JSON.stringify(midiMap)); } catch (e) {}
-    $('midiNote').textContent = `Knob ${cc} → ${LEVERS[key][0]}`;
-  }
-  setLever(key, val / 127); markPreset(null);
-}
-
-(function frame() { render(); requestAnimationFrame(frame); })();
-loadSources();
-
-// test hook: lets an automated check feed fake "voice" without a microphone
-window.__vc = { applyPreset, get P() { return P; }, addScrap, placeStrip, placeWord, finish: async () => { state = 'listening'; await finish(); }, get sources() { return sources.length; } };
-</script>
+<script src="js/sources.js?v=e2d0cfd5"></script>
+<script src="js/params.js?v=e2d0cfd5"></script>
+<script src="js/engine.js?v=e2d0cfd5"></script>
+<script src="js/audio.js?v=e2d0cfd5"></script>
+<script src="js/ui.js?v=e2d0cfd5"></script>
 </body>
 </html>
