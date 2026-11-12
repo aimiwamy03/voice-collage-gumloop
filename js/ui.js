@@ -16,6 +16,7 @@ function showFeatures() { for (const f of FEATURES) featBars[f].style.height = M
 const bound = {}; // key -> [refresh fns]
 const PAPER_KEYS = ['bg', 'texture', 'vignette', 'frame'];
 function onParam(k) {
+  if (k === 'mode') { syncMode(); }
   if (k === 'shape') { if (state === 'idle' || state === 'done') { applyShape(); if (state === 'done') clearPieces(); } }
   else if (PAPER_KEYS.includes(k)) paintPaper();
   if (state === 'done') render();
@@ -55,11 +56,11 @@ function applyPreset(name) {
   const pr = PRESETS[name]; const shapeChanged = pr.shape && pr.shape !== P.shape;
   P = { ...P, ...JSON.parse(JSON.stringify(pr)) };
   if (shapeChanged) applyShape(); else paintPaper();
-  syncAll(); markPreset(name);
+  syncAll(); syncMode(); markPreset(name);
 }
 function surprise() {
   for (const it of ALL_ITEMS) {
-    if (['recordVideo', 'pitchHeight', 'langArchive', 'sessionSec', 'sensitivity', 'copyChain'].includes(it.k)) continue;
+    if (['recordVideo', 'pitchHeight', 'langArchive', 'sessionSec', 'sensitivity', 'copyChain', 'mode', 'autoSculpture'].includes(it.k)) continue;
     if (it.type === 'range') P[it.k] = Math.random() < .25 ? 0 : Math.round(rnd() * 100) / 100;
     else if (it.type === 'select') P[it.k] = it.options[Math.floor(rnd(it.options.length))];
     else if (it.type === 'color') P[it.k] = '#' + Math.floor(rnd(0xffffff)).toString(16).padStart(6, '0');
@@ -77,7 +78,24 @@ function presetChip(name, parent) {
   b.onclick = () => name === 'Surprise me' ? surprise() : applyPreset(name);
   parent.appendChild(b);
 }
-[...GUEST_PRESETS, 'Surprise me'].forEach(n => presetChip(n, $('presetChips')));
+function buildGuestChips() { $('presetChips').innerHTML = ''; [...(P.mode === 'paint' ? GUEST_PAINT : GUEST_PRESETS), 'Surprise me'].forEach(n => presetChip(n, $('presetChips'))); markPreset(activePreset); }
+buildGuestChips();
+function setMode(m) {
+  if (P.mode === m && activePreset) return;
+  applyPreset(m === 'paint' ? 'Oil sketch' : 'Ransom note');
+  syncMode();
+}
+function syncMode() {
+  $('modeCollage').classList.toggle('on', P.mode !== 'paint'); $('modePaint').classList.toggle('on', P.mode === 'paint');
+  $('introSub').textContent = P.mode === 'paint'
+    ? 'Your voice drags oil paint across raw canvas. The pitch and sharpness of your voice mix the pigment; words that name a colour (sea, amour, 火, 사랑…) change it. Loud, rough sounds scratch through the wet paint. Your words are painted or carved in.'
+    : 'Your voice tears paper from the archive. Louder makes bigger pieces, higher voices float up, a held sound tears a long strip, the words land as cut-out letters, and the language you speak chooses the city.';
+  $('micBtn').textContent = P.mode === 'paint' ? 'Paint with my voice' : 'Use microphone';
+  buildGuestChips(); showPigment();
+  if (state === 'idle') { setStatus(P.mode === 'paint' ? 'Tap “Paint with my voice” to start.' : 'Tap “Use microphone” to start.'); $('voiceHint').textContent = P.mode === 'paint' ? '· speak past the red line to paint' : '· speak past the red line to tear paper'; }
+}
+$('modeCollage').onclick = () => setMode('collage');
+$('modePaint').onclick = () => setMode('paint');
 [...Object.keys(PRESETS), 'Surprise me'].forEach(n => presetChip(n, $('studioPresets')));
 ['scatter', 'color', 'density'].forEach(k => $('guestLevers').appendChild(control(ALL_ITEMS.find(i => i.k === k), true)));
 
@@ -202,8 +220,8 @@ $('listenBtn').onclick = () => { listenMode = !listenMode; $('listenBtn').classL
 $('sculptBtn').onclick = () => open3D();
 $('againBtn').onclick = () => {
   collageNo++; $('noLabel').textContent = 'No. ' + pad3(collageNo); close3D(); listenMode = false; $('listenBtn').classList.remove('on'); $('stage').classList.remove('listening');
-  if (resetAfter) { P = JSON.parse(JSON.stringify(savedDefaults)); markPreset(null); }
-  applyShape(); clearPieces(); syncAll(); state = 'idle'; showIdleTime(); setStatus('Tap “Use microphone” to start.'); showLevel(0); refreshKeyUI(); $('hud').classList.add('idle'); $('voiceHint').textContent = '· speak past the red line to tear paper';
+  if (resetAfter) { const m = P.mode, ap = activePreset; P = JSON.parse(JSON.stringify(savedDefaults)); if (m !== P.mode) { P.mode = m; if (m === 'paint') P = { ...P, ...JSON.parse(JSON.stringify(PAINT_PRESETS['Oil sketch'])) }; } markPreset(null); }
+  applyShape(); clearPieces(); syncAll(); syncMode(); state = 'idle'; showIdleTime(); setStatus(P.mode === 'paint' ? 'Tap “Paint with my voice” to start.' : 'Tap “Use microphone” to start.'); showLevel(0); refreshKeyUI(); $('hud').classList.add('idle'); $('voiceHint').textContent = '· speak past the red line to tear paper';
   state = 'idle'; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
 };
 cv.addEventListener('click', ev => {
@@ -220,6 +238,7 @@ cv.addEventListener('click', ev => {
       return;
     }
   }
+  if (spokenWords.length) { const w = spokenWords[Math.floor(rnd(spokenWords.length))]; playWord(w); setStatus(`▶ “${w.text}”`); }
 });
 
 // ---------- room wall (every collage tonight, on this device) ----------
@@ -264,7 +283,9 @@ async function open3D() {
   const tex = c => { const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; return t; };
   const paper = new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshBasicMaterial({ map: tex(layers.paper), transparent: true }));
   paper.position.z = -span * .6 - 40; group.add(paper);
-  const pieces = history.map((s, i) => {
+  if (P.mode === 'paint') { const pl = new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshBasicMaterial({ map: tex(layers.settled), transparent: true, depthWrite: false })); pl.position.z = -span * .25; pl.renderOrder = 0; group.add(pl);
+    const ws = new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshBasicMaterial({ map: tex(layers.words), transparent: true, depthWrite: false })); ws.userData.z = span * .3; group.add(ws); }
+  const pieces = history.filter(s => s.canvas).map((s, i) => {
     const m = new T.Mesh(new T.PlaneGeometry(s.canvas.width, s.canvas.height), new T.MeshBasicMaterial({ map: tex(s.canvas), transparent: true, opacity: s.alpha, side: T.DoubleSide, depthWrite: false }));
     const z = ((i / Math.max(1, N - 1)) - .5) * span + (s.z || 0) * span * .25 + (s.word ? span * .18 : 0);
     m.position.set(s.x - W / 2, -(s.y - H / 2), 0); m.rotation.z = -s.rot; m.userData.z = z; m.renderOrder = i + 1; group.add(m); return m;
@@ -283,6 +304,7 @@ async function open3D() {
     renderer.render(scene, cam); raf = requestAnimationFrame(tick);
   };
   tick();
+  if (P.mode === 'paint') pieces.push(...group.children.filter(m => m.userData.z && !pieces.includes(m)));
   r3 = { renderer, stop: () => { cancelAnimationFrame(raf); renderer.domElement.removeEventListener('pointermove', onMove); window.removeEventListener('deviceorientation', onTilt); renderer.dispose(); } };
   $('view3dNote').textContent = 'move your mouse or tilt your phone';
 }
@@ -300,7 +322,7 @@ $('turntableBtn').onclick = async () => {
 };
 
 // ---------- boot ----------
-applyShape(); syncAll(); refreshKeyUI(); showIdleTime();
+applyShape(); syncAll(); refreshKeyUI(); showIdleTime(); syncMode();
 (function frame() {
   if (highlight && performance.now() > highlight.until) { highlight = null; render(); }
   if (state !== 'done' || anims.length || highlight) render();

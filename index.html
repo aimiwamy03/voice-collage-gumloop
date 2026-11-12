@@ -112,6 +112,13 @@
   .view3d .bar button { min-width:0; padding:9px 12px; font-size:11px; }
   .view3d .bar span { font-size:11px; color:var(--ink); flex:1; text-align:right; background:rgba(244,241,234,.8); padding:4px 6px; }
   #view3dCanvas, #view3dCanvas canvas { width:100%; height:100%; display:block; }
+  .modes { display:flex; gap:0; border:1px solid var(--ink); }
+  .mode { min-width:0; padding:10px 22px; background:transparent; color:var(--ink); border:none; font-size:12px; text-align:center; }
+  .mode small { display:block; font-size:10px; text-transform:none; letter-spacing:0; opacity:.65; margin-top:2px; }
+  .mode.on { background:var(--ink); color:var(--paper); }
+  .pigment { font-size:11px; display:inline-flex; align-items:center; gap:6px; margin-left:10px; }
+  .pigment i { width:14px; height:14px; display:inline-block; border:1px solid rgba(0,0,0,.25); }
+  .pigment span { color:var(--dim); }
   footer { margin-top:28px; font-size:11px; color:var(--dim); max-width:560px; line-height:1.6; text-align:center; }
 </style>
 </head>
@@ -126,8 +133,9 @@
     <div class="bar"><button class="ghost" id="flatBtn">Back to flat</button><button class="ghost" id="turntableBtn">Save 8 s turntable</button><span id="view3dNote"></span></div>
   </div>
   <div class="overlay" id="intro">
+    <div class="modes"><button class="mode on" id="modeCollage">Collage<small>tear paper</small></button><button class="mode" id="modePaint">Paint<small>oil &amp; scratches</small></button></div>
     <p class="title">Say anything,<br><em>in any language.</em></p>
-    <p class="sub">Your voice tears paper from the archive. Louder makes bigger pieces, higher voices float up, a held sound tears a long strip, the words land as cut-out letters, and the language you speak chooses the city.</p>
+    <p class="sub" id="introSub"></p>
     <div class="row" style="flex-direction:column;align-items:center">
       <button id="micBtn">Use microphone</button>
       <label class="btn ghost" for="fileIn">Use a voice recording</label>
@@ -161,7 +169,7 @@
 </div>
 <div class="features" id="features"></div>
 <div class="hud" style="margin-top:6px;min-height:0">
-  <span class="words" id="wordsStatus"></span><span style="flex:1"></span><span class="words" id="heard"></span>
+  <span class="words" id="wordsStatus"></span><span class="pigment" id="pigment"></span><span style="flex:1"></span><span class="words" id="heard"></span>
 </div>
 
 <div class="controls" id="controls">
@@ -218,10 +226,11 @@
 
 <footer>v4 · volume, pitch, brightness, speed, breath &amp; pauses → paper · words → cut-out letters · language → city · silence → glue.<br>Material: Aimi's photographs, paintings and posters · rienespecial.com</footer>
 
-<script src="js/sources.js?v=9ba29b3b"></script>
-<script src="js/params.js?v=9ba29b3b"></script>
-<script src="js/engine.js?v=9ba29b3b"></script>
-<script src="js/audio.js?v=9ba29b3b"></script>
-<script src="js/ui.js?v=9ba29b3b"></script>
+<script src="js/sources.js?v=430ebd00"></script>
+<script src="js/params.js?v=430ebd00"></script>
+<script src="js/paint.js?v=430ebd00"></script>
+<script src="js/engine.js?v=430ebd00"></script>
+<script src="js/audio.js?v=430ebd00"></script>
+<script src="js/ui.js?v=430ebd00"></script>
 </body>
 </html>

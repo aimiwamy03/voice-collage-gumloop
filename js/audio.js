@@ -116,6 +116,7 @@ function placeWord(text, lang, start, end) {
   if (lang) { const base = lang.split('-')[0]; heardLangs.set(base, (heardLangs.get(base) || 0) + 1); currentLang = base; }
   heardWords.push(text); $('heard').textContent = '“' + text + '”';
   if (state !== 'listening' && state !== 'settling') return;
+  if (P.mode === 'paint') { if (wordsPlaced < 40) { paintWordJob(text, lang, a0, a1); wordsPlaced++; } return; }
   if (wordsPlaced >= Math.round(lerp(6, 36, P.wordsVsImages))) return;
   if (Math.random() > clamp(P.wordsVsImages * 2.2, 0, 1)) return;
   const m = mods();
@@ -255,7 +256,7 @@ function begin(calibrate) {
   $('intro').classList.add('hidden'); $('after').classList.remove('show'); $('controls').classList.add('hidden');
   floor = .008; gate = .02;
   if (calibrate) {
-    state = 'calibrating'; $('hud').classList.remove('idle'); setStatus('Stay quiet for a second — measuring the room…'); const samples = [], t0 = performance.now();
+    state = 'calibrating'; $('hud').classList.remove('idle'); $('voiceHint').textContent = P.mode === 'paint' ? '· speak past the red line to paint' : '· speak past the red line to tear paper'; setStatus('Stay quiet for a second — measuring the room…'); const samples = [], t0 = performance.now();
     const cal = () => {
       analyser.getFloatTimeDomainData(buf); samples.push(rmsOf(buf)); showLevel(samples[samples.length - 1]);
       if (performance.now() - t0 < 1200) return requestAnimationFrame(cal);
@@ -294,9 +295,10 @@ function loop() {
     if (!runStart) { runStart = now; onsets.push(now); F.pause = clamp((now - quietSince) / 1500, 0, 1); }
     voicedMs = now - runStart; totalVoiced += dt;
     updateFeatures(r, true, now);
-    spawnFrom(r, voicedMs, now); setStatus('Tearing paper…');
+    if (P.mode === 'paint') { paintFrom(r, true, voicedMs, now, dt); setStatus('Painting…'); } else { spawnFrom(r, voicedMs, now); setStatus('Tearing paper…'); }
   } else {
-    if (runStart && voicedMs > 650) placeStrip(voicedMs);
+    if (P.mode === 'paint') paintFrom(r, false, 0, now, dt);
+    else if (runStart && voicedMs > 650) placeStrip(voicedMs);
     if (runStart) quietSince = now;
     runStart = 0; voicedMs = 0; updateFeatures(r, false, now); setStatus(now - tStart < 2500 ? `Speak now — you have ${Math.round(sessionMs / 1000)} seconds.` : 'Listening… keep talking, or stay quiet to finish.');
   }
@@ -312,7 +314,10 @@ async function finish() {
   try { srcNode && srcNode.disconnect(); analyser && analyser.disconnect(); } catch (e) {}
   if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
   await stopAudioRecording();
-  if (!history.length) { const b = bounds(); pushPiece(makeScrap(260, 180, .7), b.cx, b.cy, rnd(-.1, .1)); }
+  if (P.mode === 'paint') {
+    if (strokeNow && !strokeNow.ended) endStroke();
+    const t0 = performance.now(); while ((paintJobs.length || (strokeNow && strokeNow.drawn < strokeNow.pts.length)) && performance.now() - t0 < 5000) await new Promise(r => setTimeout(r, 60));
+  } else if (!history.length) { const b = bounds(); pushPiece(makeScrap(260, 180, .7), b.cx, b.cy, rnd(-.1, .1)); }
   await new Promise(r => setTimeout(r, Math.max(700, lerp(1000, 250, P.settle))));
   for (const s of anims) commitPiece(s); anims = [];
   drawStampsAndStains(sctx);

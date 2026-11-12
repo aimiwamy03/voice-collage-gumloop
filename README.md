@@ -9,9 +9,13 @@ Live: https://aimiwamy03.github.io/voice-collage-gumloop/
 - **Studio:** press `S` (or triple-tap “No.”). Every lever: canvas shape, paper, colours, text modes, image treatments, scrap shapes, edges, attachments, layouts, motion, effects, 3D, recording, MIDI knobs. `W` opens tonight's wall.
 - **Outputs:** image, stop-motion video with the voice, listen mode (tap a scrap to hear its moment), 3D sculpture + turntable video.
 
+## Paint mode
+Choose **Paint** on the start screen. The voice drags oil paint across linen: pitch × brightness picks the pigment (umber, Prussian blue, vermilion…), and words that name or evoke a colour in English, French, Spanish, Chinese, Korean or Japanese (sea/mer/海/바다, love/amour/爱/사랑, night/nuit/夜/밤…) switch the paint for a few seconds. Loud, rough, breathy sound builds a scratch level that gouges through the wet paint; past a threshold, words are carved (sgraffito) instead of painted. Studio → *Mode & paint* has brush, impasto, scratchiness, letters, story colour and drips.
+
 ## Files
 - `index.html` — markup and styles
 - `js/params.js` — defaults, presets, the studio schema
+- `js/paint.js` — paint mode: brush strokes, pigments, story colour lexicon, scratching, painted/carved letters
 - `js/engine.js` — drawing: shapes, paper, scraps, words, layouts, attachments, effects
 - `js/audio.js` — mic/file input, voice features, patch bay, Deepgram, recording, session flow
 - `js/ui.js` — controls, studio, wall, 3D sculpture, listen mode, MIDI

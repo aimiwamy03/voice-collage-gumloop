@@ -70,6 +70,13 @@ function paintPaper() {
     for (let y = 0; y < H; y += 300) for (let x = 0; x < W; x += 300) g.drawImage(grain, x, y);
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   }
+  if (P.texture === 'linen') { // canvas weave
+    for (let y = 0; y < H; y += 3) { g.fillStyle = `rgba(${dark ? '255,255,255' : '60,45,25'},${rnd(.03, .09)})`; g.fillRect(0, y, W, 1); }
+    for (let x = 0; x < W; x += 3) { g.fillStyle = `rgba(${dark ? '255,255,255' : '60,45,25'},${rnd(.02, .07)})`; g.fillRect(x, 0, 1, H); }
+    g.globalAlpha = dark ? .06 : .1; g.globalCompositeOperation = dark ? 'screen' : 'multiply';
+    for (let y = 0; y < H; y += 300) for (let x = 0; x < W; x += 300) g.drawImage(grain, x, y);
+    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  }
   if (P.texture === 'cardboard') {
     g.strokeStyle = 'rgba(90,60,30,.12)'; g.lineWidth = 1;
     for (let i = 0; i < 700; i++) { const x = rnd(W), y = rnd(H), a = rnd(Math.PI), l = rnd(4, 16); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
@@ -558,6 +565,7 @@ function composite(g, live) {
 }
 function render() {
   const now = performance.now();
+  if (P.mode === 'paint' && typeof stepPaint === 'function') stepPaint();
   anims = anims.filter(s => { if (now - s.t0 >= s.dur) { commitPiece(s); return false; } return true; });
   composite(ctx, state === 'listening');
 }
@@ -578,6 +586,7 @@ function exportCanvas() {
 function clearPieces() {
   sctx.clearRect(0, 0, W, H); wctx.clearRect(0, 0, W, H); gctx.clearRect(0, 0, W, H);
   anims = []; history = []; highlight = null; captionText = '';
+  if (typeof resetPaint === 'function') resetPaint();
 }
 // faded photocopy of the previous guest's collage
 let lastCollage = null;

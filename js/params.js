@@ -28,6 +28,9 @@ const FEATURE_HINT = {
 const TARGETS = ['size', 'tilt', 'hue', 'scatter', 'depth', 'blur', 'fade', 'drift'];
 
 const DEFAULTS = {
+  mode: 'collage',
+  // paint mode
+  brushSize: .5, impasto: .6, scratchBias: .5, letterStyle: 'auto', storyColor: true, drips: .3,
   // canvas
   shape: 'portrait', bg: '#f4f1ea', texture: 'grain', vignette: .35, frame: 0,
   // words
@@ -65,12 +68,24 @@ const PRESETS = {
   'Halftone': { treatment: 'halftone', duoA: '#141414', bg: '#f2ede2', textMode: 'inverted', typeface: 'grotesk', layoutMode: 'spiral', scrapShape: 'circle', edgeStyle: 'zigzag', shape: 'circle', autoSculpture: false },
   'Photocopy': { treatment: 'photocopy', copyChain: true, streaks: .5, grain: .55, textMode: 'tiles', typeface: 'display', letterMix: .4, bg: '#ecebe6', texture: 'smooth', shape: 'portrait', autoSculpture: false },
 };
+const PAINT_PRESETS = {
+  'Oil sketch': { mode: 'paint', bg: '#e6d8bd', texture: 'linen', brushSize: .55, impasto: .6, scratchBias: .35, letterStyle: 'auto', drips: .25, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .2, leaks: 0 },
+  'Sgraffito': { mode: 'paint', bg: '#efe6d4', texture: 'linen', brushSize: .85, impasto: .8, scratchBias: 1, letterStyle: 'scratched', drips: .1, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .15, leaks: 0 },
+  'Night oil': { mode: 'paint', bg: '#151412', texture: 'linen', brushSize: .6, impasto: .75, scratchBias: .5, letterStyle: 'painted', drips: .45, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .2, leaks: .25 },
+  'Story painting': { mode: 'paint', bg: '#f1ead9', texture: 'linen', brushSize: .4, impasto: .5, scratchBias: .3, letterStyle: 'painted', drips: .2, typeface: 'hand', wordSize: .8, wordsVsImages: .8, shape: 'landscape', storyColor: true, autoSculpture: false, grain: .15, leaks: 0 },
+  'Paint in 3D': { mode: 'paint', bg: '#e6d8bd', texture: 'linen', brushSize: .7, impasto: .9, scratchBias: .6, letterStyle: 'auto', drips: .3, shape: 'square', storyColor: true, autoSculpture: true, depth3d: .9 },
+};
+for (const k in PRESETS) PRESETS[k].mode = 'collage';
+Object.assign(PRESETS, PAINT_PRESETS);
+const GUEST_PAINT = ['Oil sketch', 'Sgraffito', 'Night oil', 'Story painting', 'Paint in 3D'];
 const GUEST_PRESETS = ['Ransom note', 'Ilford', 'Metro', 'Lettre', 'Riso', 'Polaroid', 'Sculpture'];
 const PRESET_BLURB = {
   'Ransom note': 'mixed type, tidy words', 'Ilford': 'black & white, torn, airy', 'Metro': 'posters, packed, wild',
   'Lettre': 'a postcard in serif', 'Riso': 'two inks on a grid', 'Polaroid': 'light leaks, instant', 'Sculpture': 'ends in 3D',
   'Film strip': 'cascading frames', 'Blueprint': 'pinned constellation', 'Pile': 'scraps fall and stack',
   'Halftone': 'dots in a circle', 'Photocopy': 'copy of the last guest',
+  'Oil sketch': 'loose strokes on linen', 'Sgraffito': 'scratched through the paint', 'Night oil': 'colour on black canvas',
+  'Story painting': 'your words choose the colours', 'Paint in 3D': 'ends as a relief',
 };
 
 // ---------- studio schema: every lever, generated into the panel ----------
@@ -79,10 +94,19 @@ const S = (k, label, options) => ({ k, type: 'select', label, options });
 const Cc = (k, label) => ({ k, type: 'color', label });
 const B = (k, label) => ({ k, type: 'check', label });
 const SCHEMA = [
+  { sec: 'Mode & paint', items: [
+    S('mode', 'Mode', ['collage', 'paint']),
+    R('brushSize', 'Brush', 'fine', 'fat'),
+    R('impasto', 'Impasto', 'thin wash', 'thick ridges'),
+    R('scratchBias', 'Scratchiness', 'gentle', 'violent'),
+    S('letterStyle', 'Letters', ['auto', 'painted', 'scratched']),
+    B('storyColor', 'Words choose the pigment'),
+    R('drips', 'Drips', 'none', 'running'),
+  ]},
   { sec: 'Canvas', items: [
     S('shape', 'Shape', ['portrait', 'square', 'landscape', 'scroll', 'postcard', 'circle', 'arch', 'blob', 'filmstrip', 'polaroid']),
     Cc('bg', 'Background'),
-    S('texture', 'Paper', ['grain', 'smooth', 'cardboard', 'graph', 'lined', 'tracing']),
+    S('texture', 'Paper', ['grain', 'smooth', 'linen', 'cardboard', 'graph', 'lined', 'tracing']),
     R('vignette', 'Vignette', 'none', 'heavy'),
     R('frame', 'Mat border', 'none', 'wide'),
   ]},
