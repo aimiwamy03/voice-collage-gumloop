@@ -212,8 +212,12 @@ cv.addEventListener('click', ev => {
   for (let i = history.length - 1; i >= 0; i--) {
     const s = history[i], dx = px - s.x, dy = py - s.y, c = Math.cos(-s.rot), sn = Math.sin(-s.rot), lx = dx * c - dy * sn, ly = dx * sn + dy * c;
     if (Math.abs(lx) < s.w / 2 && Math.abs(ly) < s.h / 2) {
-      highlight = { rec: s, until: performance.now() + 1600 }; playSlice(s.t);
-      setStatus(`▶ Playing the moment at ${Math.floor(s.t / 60)}:${String(Math.floor(s.t % 60)).padStart(2, '0')}`); return;
+      let w = s.word && s.a0 ? { text: s.text, a0: s.a0, a1: s.a1 } : null;
+      if (!w && spokenWords.length) w = spokenWords[Math.floor(rnd(spokenWords.length))]; // photo scraps: a random spoken word
+      highlight = { rec: s, until: performance.now() + 1400 };
+      if (w) { playWord(w); setStatus(`▶ “${w.text}”`); }
+      else { playRange(s.t - .25, s.t + .45); setStatus('▶ (no words heard — add a Deepgram key for word-by-word)'); }
+      return;
     }
   }
 });

@@ -470,7 +470,7 @@ function flyOffsets(s) {
   }
 }
 function pushPiece(s, x, y, rot, opts = {}) {
-  const rec = { ...s, x, y, rot, alpha: opts.alpha ?? 1, word: !!opts.word, z: opts.z || 0, t: opts.t || 0, att: opts.word ? [] : makeAttachments(s.w, s.h), t0: performance.now(), dur: lerp(950, 170, P.settle) * (opts.word ? 1.15 : 1) };
+  const rec = { ...s, x, y, rot, alpha: opts.alpha ?? 1, word: !!opts.word, z: opts.z || 0, t: opts.t || 0, a0: opts.a0 || 0, a1: opts.a1 || 0, text: opts.text || '', att: opts.word ? [] : makeAttachments(s.w, s.h), t0: performance.now(), dur: lerp(950, 170, P.settle) * (opts.word ? 1.15 : 1) };
   rec.fly = flyOffsets(rec);
   anims.push(rec); history.push(rec);
   return rec;

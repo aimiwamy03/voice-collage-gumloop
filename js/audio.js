@@ -53,11 +53,13 @@ function mods() {
 
 // ---------- Deepgram live words ----------
 let dgKey = ''; try { dgKey = localStorage.getItem('vc_dg') || ''; } catch (e) {}
-let dg = null, dgTap = null, dgMute = null, pcmBuf = [], pcmLen = 0, dgSR = 48000, dgSendTimer = null;
+let dg = null, dgTap = null, dgMute = null, pcmBuf = [], pcmLen = 0, dgSR = 48000, dgSendTimer = null, dgAudioStart = 0;
+let spokenWords = []; // every word Deepgram heard, with wall-clock start/end (ms)
+function onPcm(d) { if (!dgAudioStart) dgAudioStart = performance.now() - d.length / dgSR * 1000; pcmBuf.push(d); pcmLen += d.length; }
 function setWordsStatus(t) { $('wordsStatus').textContent = t; }
 async function dgStart(node) {
   if (!dgKey) return;
-  dgSR = audioCtx.sampleRate; pcmBuf = []; pcmLen = 0;
+  dgSR = audioCtx.sampleRate; pcmBuf = []; pcmLen = 0; dgAudioStart = 0; spokenWords = [];
   const url = 'wss://api.deepgram.com/v1/listen?model=nova-3&language=multi&interim_results=true&endpointing=250&encoding=linear16&sample_rate=16000&channels=1';
   try { dg = new WebSocket(url, ['token', dgKey]); } catch (e) { dg = null; setWordsStatus('words: could not connect'); return; }
   dg.binaryType = 'arraybuffer'; setWordsStatus('words: connecting…');
@@ -68,15 +70,15 @@ async function dgStart(node) {
     if (m.type !== 'Results' || !m.is_final) return;
     const alt = m.channel && m.channel.alternatives && m.channel.alternatives[0]; if (!alt) return;
     const fb = (alt.languages && alt.languages[0]) || null;
-    for (const w of (alt.words || [])) placeWord(w.punctuated_word || w.word, w.language || fb);
+    for (const w of (alt.words || [])) placeWord(w.punctuated_word || w.word, w.language || fb, w.start, w.end);
   };
   try {
     const code = "class T extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('pcm-tap',T)";
     if (!audioCtx.__tapLoaded) { await audioCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], { type: 'application/javascript' }))); audioCtx.__tapLoaded = true; }
-    dgTap = new AudioWorkletNode(audioCtx, 'pcm-tap'); dgTap.port.onmessage = e => { pcmBuf.push(e.data); pcmLen += e.data.length; };
+    dgTap = new AudioWorkletNode(audioCtx, 'pcm-tap'); dgTap.port.onmessage = e => onPcm(e.data);
   } catch (e) {
     dgTap = audioCtx.createScriptProcessor(4096, 1, 1);
-    dgTap.onaudioprocess = e => { const d = e.inputBuffer.getChannelData(0).slice(0); pcmBuf.push(d); pcmLen += d.length; };
+    dgTap.onaudioprocess = e => onPcm(e.inputBuffer.getChannelData(0).slice(0));
   }
   dgMute = audioCtx.createGain(); dgMute.gain.value = 0;
   node.connect(dgTap); dgTap.connect(dgMute); dgMute.connect(audioCtx.destination);
@@ -84,9 +86,10 @@ async function dgStart(node) {
 }
 function dgFlush() {
   if (!pcmLen) return;
+  if (!dg) { pcmBuf = []; pcmLen = 0; return; }
+  if (dg.readyState !== 1) return; // still connecting: keep buffering
   const all = new Float32Array(pcmLen); let o = 0; for (const b of pcmBuf) { all.set(b, o); o += b.length; }
   pcmBuf = []; pcmLen = 0;
-  if (!dg || dg.readyState !== 1) return;
   const ratio = dgSR / 16000, n = Math.floor(all.length / ratio), out = new Int16Array(n);
   for (let i = 0; i < n; i++) out[i] = Math.max(-1, Math.min(1, all[Math.floor(i * ratio)])) * 0x7fff;
   dg.send(out.buffer);
@@ -106,8 +109,10 @@ async function dgStop() {
 // ---------- words onto the page ----------
 let wordsPlaced = 0, wordRects = [], heardWords = [];
 const heardLangs = new Map();
-function placeWord(text, lang) {
+function placeWord(text, lang, start, end) {
   text = (text || '').trim(); if (!text) return;
+  let a0 = 0, a1 = 0;
+  if (dgAudioStart && start != null && end != null) { a0 = dgAudioStart + start * 1000; a1 = dgAudioStart + Math.max(end, start + .12) * 1000; spokenWords.push({ text, a0, a1 }); }
   if (lang) { const base = lang.split('-')[0]; heardLangs.set(base, (heardLangs.get(base) || 0) + 1); currentLang = base; }
   heardWords.push(text); $('heard').textContent = '“' + text + '”';
   if (state !== 'listening' && state !== 'settling') return;
@@ -129,7 +134,7 @@ function placeWord(text, lang) {
   }
   const [x, y] = best; wordRects.push({ x, y, w: s.w * .8, h: s.h * .7 });
   const wr = lerp(.02, .3, Math.max(P.tilt, P.scatter * .8));
-  pushPiece(s, x + m.drift * 200, y, rnd(-wr, wr) + m.tilt * .5, { word: true, alpha: clamp(1 - Math.max(0, m.fade) * .75, .25, 1), z: 1 + m.depth, t: recTime() });
+  pushPiece(s, x + m.drift * 200, y, rnd(-wr, wr) + m.tilt * .5, { word: true, alpha: clamp(1 - Math.max(0, m.fade) * .75, .25, 1), z: 1 + m.depth, t: recTime(), a0, a1, text });
   wordsPlaced++;
 }
 function langNames() {
@@ -200,11 +205,15 @@ async function stopVideoRecording() {
   if (videoChunks.length) videoBlob = new Blob(videoChunks, { type: videoRec.mimeType || 'video/webm' });
   videoRec = null;
 }
-function playSlice(t) {
+let playing = null;
+function playRange(t0, t1) { // seconds within the recording
   if (!audioBuffer) return false;
+  try { playing && playing.stop(); } catch (e) {}
   const src = audioCtx.createBufferSource(); src.buffer = audioBuffer; src.connect(audioCtx.destination);
-  src.start(0, clamp(t - .35, 0, audioBuffer.duration - .1), 1.6); return true;
+  const s = clamp(t0, 0, audioBuffer.duration - .05); src.start(0, s, clamp(t1 - t0, .12, 3)); playing = src; return true;
 }
+// a word's own sound: Deepgram's word timing mapped onto our recording's clock
+function playWord(w) { return playRange((w.a0 - recStart) / 1000 - .07, (w.a1 - recStart) / 1000 + .1); }
 
 // ---------- session flow ----------
 async function ensureAudio() {
