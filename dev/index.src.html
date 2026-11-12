@@ -14,7 +14,7 @@
   html,body { margin:0; background:var(--bg); color:var(--ink); font-family:'IBM Plex Mono', ui-monospace, monospace; }
   body { min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:20px 14px 40px; }
   header { width:100%; max-width:560px; display:flex; justify-content:space-between; align-items:baseline; font-size:12px; letter-spacing:.08em; color:var(--dim); text-transform:uppercase; margin-bottom:12px; }
-  .stage { position:relative; width:100%; max-width:560px; aspect-ratio:4/5; background:var(--paper); box-shadow:0 1px 0 rgba(0,0,0,.05), 0 18px 40px rgba(0,0,0,.14); }
+  .stage { position:relative; width:100%; max-width:560px; aspect-ratio:4/5; background:var(--paper-stock, var(--paper)); box-shadow:0 1px 0 rgba(0,0,0,.05), 0 18px 40px rgba(0,0,0,.14); }
   canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
   .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:28px; gap:16px; background:rgba(244,241,234,.92); transition:opacity .4s; }
   .overlay.hidden { opacity:0; pointer-events:none; }
@@ -46,6 +46,32 @@
   .keypanel input { font:inherit; font-size:13px; width:100%; padding:11px 12px; border:1px solid var(--ink); background:#fff; }
   .keypanel .row button { min-width:0; padding:10px 16px; }
   .words { font-size:11px; letter-spacing:.06em; text-transform:uppercase; }
+  .controls { width:100%; max-width:560px; margin-top:16px; display:flex; flex-direction:column; gap:14px; }
+  .controls.hidden { display:none; }
+  .chips { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  #stockChips { display:flex; flex-wrap:wrap; }
+  @media (max-width:520px) { .chips { grid-template-columns:repeat(2, 1fr); } }
+  input[type=checkbox] { accent-color:var(--ink); }
+  .chip { font:inherit; font-size:12px; letter-spacing:.04em; padding:9px 12px; min-width:0; border:1px solid var(--ink); background:transparent; color:var(--ink); text-transform:none; cursor:pointer; }
+  .chip.on { background:var(--ink); color:var(--paper); }
+  .chip small { display:block; font-size:10px; opacity:.65; margin-top:2px; letter-spacing:0; }
+  .lever { display:grid; grid-template-columns: 74px 1fr; gap:4px 12px; align-items:center; font-size:11px; }
+  .lever .name { text-transform:uppercase; letter-spacing:.08em; font-size:11px; }
+  .lever .ends { grid-column:2; display:flex; justify-content:space-between; color:var(--dim); font-size:10px; margin-top:-4px; }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:2px; background:var(--ink); outline:none; margin:10px 0; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--paper); border:1.5px solid var(--ink); cursor:pointer; }
+  input[type=range]::-moz-range-thumb { width:20px; height:20px; border-radius:50%; background:var(--paper); border:1.5px solid var(--ink); cursor:pointer; }
+  .lbl { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); }
+  .studio { position:fixed; inset:0; background:rgba(20,20,20,.55); display:none; align-items:flex-start; justify-content:center; z-index:20; overflow:auto; padding:20px 12px 60px; }
+  .studio.show { display:flex; }
+  .studio .panel { background:var(--paper); width:100%; max-width:560px; padding:22px 20px 26px; display:flex; flex-direction:column; gap:14px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  .studio h2 { font-family:'Instrument Serif', serif; font-weight:400; font-size:34px; margin:0; }
+  .studio .grid { display:flex; flex-direction:column; gap:6px; }
+  .studio .row { justify-content:flex-start; }
+  .studio button { min-width:0; padding:10px 14px; font-size:11px; }
+  .studio select { font:inherit; font-size:12px; padding:6px 8px; border:1px solid var(--ink); background:#fff; }
+  .studio label.ck { font-size:12px; display:inline-flex; gap:6px; align-items:center; margin-right:12px; }
+  .note { font-size:11px; color:var(--dim); line-height:1.5; margin:0; }
   footer { margin-top:22px; font-size:11px; color:var(--dim); max-width:560px; line-height:1.6; text-align:center; }
 </style>
 </head>
@@ -82,9 +108,37 @@
   <span class="words" id="wordsStatus"></span><span style="flex:1"></span><span class="words" id="heard"></span>
 </div>
 
+<div class="controls" id="controls">
+  <div><div class="lbl" style="margin-bottom:8px">Pick a mood</div><div class="chips" id="presetChips"></div></div>
+  <div id="guestLevers"></div>
+</div>
+
 <div class="after" id="after">
   <button id="saveBtn">Save image</button>
   <button class="ghost" id="againBtn">Again</button>
+</div>
+
+<div class="studio" id="studio">
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><h2>Studio</h2><span class="lbl">only for Aimi · press S or triple-tap “No.”</span></div>
+    <div><div class="lbl" style="margin-bottom:8px">Presets</div><div class="chips" id="studioPresets"></div></div>
+    <div class="lbl">Words</div><div class="grid" id="lvWords"></div>
+    <div class="lbl">Paper</div><div class="grid" id="lvPaper"></div>
+    <div class="lbl">Colour &amp; material</div><div class="grid" id="lvColor"></div>
+    <div><div class="lbl" style="margin-bottom:8px">Series to tear from</div><div id="seriesBox"></div></div>
+    <div><div class="lbl" style="margin-bottom:8px">Paper stock</div><div class="chips" id="stockChips"></div></div>
+    <div class="lbl">Voice</div><div class="grid" id="lvVoice"></div>
+    <div class="row" style="gap:16px;align-items:center">
+      <label class="ck"><input type="checkbox" id="pitchHeight"> Pitch → height</label>
+      <label class="ck">Session <select id="sessionSec"><option value="10">10 s</option><option value="15">15 s</option><option value="30">30 s</option></select></label>
+      <label class="ck"><input type="checkbox" id="resetAfter"> Reset guest choices after each collage</label>
+    </div>
+    <div><div class="lbl" style="margin-bottom:8px">Physical knobs (USB MIDI)</div>
+      <div class="row"><button class="ghost" id="midiBtn">Connect MIDI knobs</button></div>
+      <p class="note" id="midiNote">Plug in any MIDI controller, connect, then turn knobs one by one: the first 8 knobs you move are assigned in order to Scatter, Colour, Density, Letter mix, Word size, Words vs images, Edge, Tilt.</p></div>
+    <div class="row"><button id="saveDefaults">Save as defaults</button><button class="ghost" id="resetDefaults">Factory reset</button><button class="ghost" id="closeStudio">Close</button></div>
+    <p class="note" id="studioNote"></p>
+  </div>
 </div>
 
 <div class="saveview" id="saveview">
@@ -93,10 +147,34 @@
   <div class="row"><a class="btn" id="dlLink" download="collage.png" style="text-decoration:none;text-align:center;display:none">Download PNG</a><button id="closeSave">Close</button></div>
 </div>
 
-<footer>Prototype 2 · volume → size · pitch → height &amp; lightness · held sound → long strip · words → cut-out letters · silence → glue.<br>Material: Aimi's photographs, paintings and posters · rienespecial.com</footer>
+<footer>v3 · volume → size · pitch → height &amp; lightness · held sound → long strip · words → cut-out letters · silence → glue.<br>Material: Aimi's photographs, paintings and posters · rienespecial.com</footer>
 
 <script>
 const SOURCES = /*SOURCES*/;
+
+// ---------- levers ----------
+const DEFAULTS = {
+  scatter: .2, letterMix: .8, wordSize: .5, wordsVsImages: .5,
+  edge: .55, tilt: .35, density: .5, layout: .45, color: .85,
+  stock: 'cream', sensitivity: .5, pitchHeight: true, sessionSec: 15,
+  series: null, // null = all series
+};
+const SERIES = {
+  'soft-focus': 'Soft Focus', 'session': 'Session', 'hong-kong': 'Hong Kong', 'cambridge': 'Cambridge',
+  'mouvement': 'Mouvement', 'metro': 'Metro posters', 'mixed-media': 'Mixed media', 'other': 'Heroes & strips',
+};
+const seriesOf = name => { const k = name.split('__')[0]; return SERIES[k] ? k : 'other'; };
+const STOCKS = { cream: '#f4f1ea', newsprint: '#dedbd3', kraft: '#cdb28a', black: '#161514' };
+const PRESETS = {
+  'Ransom note': { scatter: .3, letterMix: 1, wordSize: .6, wordsVsImages: .72, edge: .45, tilt: .3, density: .45, layout: .5, color: .9, stock: 'cream', series: null },
+  'Ilford':      { scatter: .08, letterMix: .15, wordSize: .4, wordsVsImages: .25, edge: .95, tilt: .22, density: .35, layout: .38, color: 0, stock: 'cream', series: ['soft-focus','session','mouvement','hong-kong','other'] },
+  'Metro':       { scatter: .65, letterMix: .85, wordSize: .55, wordsVsImages: .5, edge: .6, tilt: .85, density: .92, layout: .95, color: 1, stock: 'newsprint', series: ['metro','mixed-media','cambridge','hong-kong'] },
+  'Lettre':      { scatter: 0, letterMix: 0, wordSize: .95, wordsVsImages: .88, edge: .3, tilt: .08, density: .22, layout: .28, color: .55, stock: 'cream', series: null },
+};
+let P = { ...DEFAULTS };
+try { const saved = JSON.parse(localStorage.getItem('vc_defaults') || 'null'); if (saved) P = { ...DEFAULTS, ...saved }; } catch (e) {}
+let activePreset = null;
+
 
 // ---------- setup ----------
 const cv = document.getElementById('cv');
@@ -132,9 +210,11 @@ function makeGrain(w, h, amt) {
 }
 const grain = makeGrain(300, 300, 60);
 function paintPaper() {
+  const stockHex = STOCKS[P.stock] || STOCKS.cream;
   const p = paperLayer.getContext('2d');
-  p.fillStyle = '#f4f1ea'; p.fillRect(0,0,W,H);
-  p.globalAlpha = .07; p.globalCompositeOperation = 'multiply';
+  p.clearRect(0,0,W,H); p.fillStyle = stockHex; p.fillRect(0,0,W,H);
+  document.documentElement.style.setProperty('--paper-stock', stockHex);
+  p.globalAlpha = P.stock === 'black' ? .05 : .07; p.globalCompositeOperation = P.stock === 'black' ? 'screen' : 'multiply';
   for (let y = 0; y < H; y += 300) for (let x = 0; x < W; x += 300) p.drawImage(grain, x, y);
   p.globalAlpha = 1; p.globalCompositeOperation = 'source-over';
   // soft vignette
@@ -155,16 +235,32 @@ async function loadSources() {
       const c = document.createElement('canvas'); c.width = mw; c.height = mh;
       const g = c.getContext('2d'); g.drawImage(img, 0, 0, mw, mh);
       const d = g.getImageData(0, 0, mw, mh).data; const lum = new Float32Array(mw*mh);
-      for (let i = 0; i < mw*mh; i++) lum[i] = (0.299*d[i*4] + 0.587*d[i*4+1] + 0.114*d[i*4+2]) / 255;
-      sources.push({ name, img, lum, mw, mh, weight: (img.width*img.height) > 300000 ? 3 : 1 });
+      let satSum = 0;
+      for (let i = 0; i < mw*mh; i++) {
+        const r = d[i*4], gg = d[i*4+1], b = d[i*4+2];
+        lum[i] = (0.299*r + 0.587*gg + 0.114*b) / 255;
+        const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b); satSum += mx ? (mx - mn) / mx : 0;
+      }
+      const sat = satSum / (mw*mh);
+      sources.push({ name, img, lum, mw, mh, sat, series: seriesOf(name), weight: (img.width*img.height) > 300000 ? 3 : 1 });
       res();
     };
     img.onerror = res; img.src = url;
   })));
 }
+function activeSources() {
+  const on = P.series && P.series.length ? sources.filter(s => P.series.includes(s.series)) : sources;
+  return on.length ? on : sources;
+}
+function sourceWeight(s) {
+  // color lever: low = favour black & white photographs, high = favour colourful ones
+  const bw = s.sat < .12 ? 1 : 0;
+  return s.weight * (1 + (1 - P.color) * 4 * bw + P.color * 2.5 * Math.min(1, s.sat * 2.5));
+}
 function pickSource() {
-  const total = sources.reduce((s, x) => s + x.weight, 0); let r = Math.random() * total;
-  for (const s of sources) { if ((r -= s.weight) <= 0) return s; } return sources[0];
+  const pool = activeSources();
+  const total = pool.reduce((a, x) => a + sourceWeight(x), 0); let r = Math.random() * total;
+  for (const s of pool) { if ((r -= sourceWeight(s)) <= 0) return s; } return pool[0];
 }
 function cropLum(s, x, y, w, h) {
   const x0 = Math.floor(x / s.img.width * s.mw), y0 = Math.floor(y / s.img.height * s.mh);
@@ -178,7 +274,7 @@ function pickCrop(aspect, targetLum, outW) {
   let best = null, bestD = 1e9;
   for (let k = 0; k < 10; k++) {
     let s = pickSource();
-    if (s.img.width < outW * 1.2 && k < 9) { s = sources.reduce((a, b) => b.img.width > a.img.width ? b : a); if (Math.random() < .5) continue; }
+    if (s.img.width < outW * 1.2 && k < 9) { s = activeSources().reduce((a, b) => b.img.width > a.img.width ? b : a); if (Math.random() < .5) continue; }
     const maxW = s.img.width, maxH = s.img.height;
     let cw = rnd(.18, .6) * maxW, ch = cw / aspect;
     if (ch > maxH * .95) { ch = maxH * rnd(.4, .95); cw = ch * aspect; }
@@ -218,21 +314,36 @@ function pathPoly(g, pts, dx=0, dy=0, sc=1, cx=0, cy=0) {
   pts.forEach(([x,y], i) => { const X = cx + (x-cx)*sc + dx, Y = cy + (y-cy)*sc + dy; i ? g.lineTo(X,Y) : g.moveTo(X,Y); });
   g.closePath();
 }
+function desaturate(g, w, h, k) {
+  try {
+    const id = g.getImageData(0, 0, w, h), d = id.data;
+    for (let i = 0; i < d.length; i += 4) { const L = .299*d[i] + .587*d[i+1] + .114*d[i+2]; d[i] = L + (d[i]-L)*k; d[i+1] = L + (d[i+1]-L)*k; d[i+2] = L + (d[i+2]-L)*k; }
+    g.putImageData(id, 0, 0);
+  } catch (e) {}
+}
 function makeScrap(w, h, targetLum) {
   w = Math.round(w); h = Math.round(h);
   const padPx = 16; const c = document.createElement('canvas'); c.width = w + padPx*2; c.height = h + padPx*2;
   const g = c.getContext('2d'); g.translate(padPx, padPx);
-  const tornSides = [0,1,2,3].map(() => Math.random() < .55);
-  if (!tornSides.some(Boolean)) tornSides[Math.floor(rnd(4))] = true;
-  const poly = tornPolygon(w, h, tornSides);
+  // edge lever: 0 = scissor-cut, 1 = every side hand-torn
+  const tornSides = [0,1,2,3].map(() => Math.random() < P.edge);
+  if (P.edge > .15 && !tornSides.some(Boolean)) tornSides[Math.floor(rnd(4))] = true;
+  const poly = tornPolygon(w, h, tornSides, lerp(2.5, 8, P.edge));
   // white fibrous torn edge underneath
   g.fillStyle = '#fbf8f0';
-  pathPoly(g, poly.map(([x,y]) => [x + rnd(-2.5,2.5), y + rnd(-2.5,2.5)]), 0, 0, 1.025, w/2, h/2); g.fill();
+  const fib = lerp(.6, 3.2, P.edge);
+  pathPoly(g, poly.map(([x,y]) => [x + rnd(-fib,fib), y + rnd(-fib,fib)]), 0, 0, lerp(1.008, 1.03, P.edge), w/2, h/2); g.fill();
   // image clipped to the polygon
   const crop = pickCrop(w / h, targetLum, w);
   g.save(); pathPoly(g, poly, 0, 0, .985, w/2, h/2); g.clip();
   g.fillStyle = '#efe9dd'; g.fillRect(-4, -4, w+8, h+8);
-  if (crop) g.drawImage(crop.s.img, crop.cx, crop.cy, crop.cw, crop.ch, 0, 0, w, h);
+  if (crop) {
+    const satF = P.color < .5 ? P.color * 2 : 1; // below the midpoint, colour drains out
+    if (satF < .999 && 'filter' in g) g.filter = `saturate(${satF.toFixed(2)}) contrast(${lerp(1.12, 1, satF).toFixed(2)})`;
+    g.drawImage(crop.s.img, crop.cx, crop.cy, crop.cw, crop.ch, 0, 0, w, h);
+    g.filter = 'none';
+    if (satF < .999 && !('filter' in g)) desaturate(g, w, h, satF);
+  }
   // paper grain + slight warm aging
   g.globalCompositeOperation = 'multiply'; g.globalAlpha = .18;
   g.drawImage(grain, rnd(0,100), rnd(0,100), 200, 200, 0, 0, w, h);
@@ -296,20 +407,21 @@ function makeWord(text, size) {
   const units = SHAPED.test(text) ? [text] : graphemes(text);
   const tmp = document.createElement('canvas').getContext('2d');
   const tiles = units.map(u => {
-    const st = LETTER_STYLES[Math.floor(rnd(LETTER_STYLES.length))];
+    const st = Math.random() < P.letterMix ? LETTER_STYLES[Math.floor(rnd(LETTER_STYLES.length))] : LETTER_STYLES[0];
     const fs = size * rnd(.82, 1.22);
     const font = st.font.replace(/^((?:italic\s+)?(?:\d{3}\s+)?)/, `$1${Math.round(fs)}px `);
     tmp.font = font;
     const tw = Math.max(tmp.measureText(u).width, fs * .35);
-    return { u, st, fs, font, w: tw + fs * .34, h: fs * 1.3, rot: rnd(-.12, .12), dy: rnd(-fs * .12, fs * .12) };
+    const sc = P.scatter, rr = lerp(.03, .55, sc);
+    return { u, st, fs, font, w: tw + fs * .34, h: fs * 1.3, rot: rnd(-rr, rr), dy: rnd(-1, 1) * fs * lerp(.04, .9, sc), dx: rnd(0, 1) * fs * lerp(0, .9, sc) };
   });
-  const gap = size * .06;
-  const W2 = tiles.reduce((a, t) => a + t.w + gap, 0) + 30, H2 = Math.max(...tiles.map(t => t.h)) + size * .5 + 30;
+  const gap = size * lerp(.03, .12, P.scatter);
+  const W2 = tiles.reduce((a, t) => a + t.w + gap + t.dx, 0) + 30, H2 = Math.max(...tiles.map(t => t.h)) + size * lerp(.5, 2.2, P.scatter) + 30;
   const c = document.createElement('canvas'); c.width = Math.ceil(W2); c.height = Math.ceil(H2);
   const g = c.getContext('2d');
   let x = 15;
   for (const t of tiles) {
-    g.save(); g.translate(x + t.w / 2, H2 / 2 + t.dy); g.rotate(t.rot);
+    g.save(); g.translate(x + t.dx + t.w / 2, H2 / 2 + t.dy); g.rotate(t.rot);
     g.shadowColor = 'rgba(40,30,15,.22)'; g.shadowBlur = 3; g.shadowOffsetY = 1.5;
     const poly = tornPolygon(t.w, t.h, [0,1,2,3].map(() => Math.random() < .35), 1.6, 5);
     pathPoly(g, poly, -t.w / 2, -t.h / 2); g.fillStyle = t.st.bg; g.fill();
@@ -320,7 +432,7 @@ function makeWord(text, size) {
     g.font = t.font; g.fillStyle = t.st.fg; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(t.u, 0, t.fs * .04);
     g.restore();
-    x += t.w + gap;
+    x += t.w + gap + t.dx;
   }
   return { canvas: c, pad: 0, w: c.width, h: c.height };
 }
@@ -329,8 +441,9 @@ const heardLangs = new Map();
 function placeWord(text, lang) {
   text = (text || '').trim(); if (!text) return;
   if (lang) heardLangs.set(lang, (heardLangs.get(lang) || 0) + 1);
-  if (wordsPlaced >= 28) return;
-  const size = lerp(40, 92, lastLoud) * (wordsPlaced > 14 ? .8 : 1);
+  if (wordsPlaced >= Math.round(lerp(6, 36, P.wordsVsImages))) return;
+  if (Math.random() > clamp(P.wordsVsImages * 2.2, 0, 1)) return; // "all paper" keeps most words out
+  const size = lerp(lerp(26, 62, P.wordSize), lerp(56, 150, P.wordSize), lastLoud) * (wordsPlaced > 14 ? .82 : 1);
   const s = makeWord(text, size);
   if (s.w > W * .9) { const k = (W * .9) / s.w; const c2 = document.createElement('canvas'); c2.width = s.w * k; c2.height = s.h * k; c2.getContext('2d').drawImage(s.canvas, 0, 0, c2.width, c2.height); s.canvas = c2; s.w = c2.width; s.h = c2.height; }
   // try a few spots near the cluster and take the one that overlaps earlier words least
@@ -349,7 +462,8 @@ function placeWord(text, lang) {
   }
   const [x, y] = best;
   wordRects.push({ x, y, w: s.w * .8, h: s.h * .7 });
-  s.word = true; pushScrap(s, x, y, rnd(-.14, .14), 460);
+  const wr = lerp(.02, .3, Math.max(P.tilt, P.scatter * .8));
+  s.word = true; pushScrap(s, x, y, rnd(-wr, wr), 460);
   wordsPlaced++;
   $('heard').textContent = '“' + text + '”';
 }
@@ -470,7 +584,7 @@ async function startMic() {
   }
   srcNode = audioCtx.createMediaStreamSource(mediaStream); srcNode.connect(analyser);
   await dgStart(srcNode);
-  sessionMs = SESSION_MS;
+  sessionMs = (P.sessionSec || 15) * 1000;
   begin(true);
 }
 
@@ -492,7 +606,7 @@ async function startFile(file) {
 
 function begin(calibrate) {
   resetCanvas();
-  $('intro').classList.add('hidden'); $('after').classList.remove('show');
+  $('intro').classList.add('hidden'); $('after').classList.remove('show'); $('controls').classList.add('hidden');
   floor = 0.008; gate = 0.02;
   if (calibrate) {
     state = 'calibrating'; setStatus('quiet… listening'); const samples = []; const t0 = performance.now();
@@ -501,7 +615,7 @@ function begin(calibrate) {
       showLevel(samples[samples.length-1]);
       if (performance.now() - t0 < 1200) return requestAnimationFrame(cal);
       samples.sort((a,b) => a-b); floor = samples[Math.floor(samples.length * .6)] || .008;
-      gate = Math.max(0.012, floor * 2.4);
+      gate = gateFrom(floor);
       go();
     };
     cal();
@@ -523,9 +637,9 @@ function loop() {
   const r = rmsOf(buf);
   showLevel(r);
   // adaptive noise floor (only drifts while quiet)
-  if (r < gate) { floor = floor * .995 + r * .005; gate = Math.max(0.012, floor * 2.4); }
+  if (r < gate) { floor = floor * .995 + r * .005; gate = gateFrom(floor); }
   const voiced = r > gate;
-  lastLoud = lastLoud * .9 + clamp((r - gate) / (0.22 - gate), 0, 1) * .1;
+  lastLoud = lastLoud * .9 + loudOf(r) * .1;
   if (voiced) {
     const p = pitchOf(buf, audioCtx.sampleRate);
     if (p > 65 && p < 900) { pitchHist.push(p); if (pitchHist.length > 7) pitchHist.shift(); }
@@ -545,28 +659,37 @@ function loop() {
 }
 
 // pitch -> 0 (low) .. 1 (high), log scale 80..500 Hz
+// sensitivity lever: 0 = needs a shout, 1 = hears a whisper
+const gateFrom = fl => Math.max(lerp(.03, .006, P.sensitivity), fl * lerp(3.6, 1.7, P.sensitivity));
+const loudOf = r => clamp((r - gate) / (lerp(.32, .12, P.sensitivity) - gate), 0, 1);
 const pitchNorm = p => clamp((Math.log(p) - Math.log(80)) / (Math.log(500) - Math.log(80)), 0, 1);
 let cluster = { x: W/2, y: H/2 };
 function spawnFrom(r, pitch, held, now) {
-  const loud = clamp((r - gate) / (0.22 - gate), 0, 1);       // 0..1
-  const interval = lerp(230, 95, loud);
+  const loud = loudOf(r);
+  const interval = lerp(230, 95, loud) * lerp(2.6, .45, P.density);
   if (now - lastSpawn < interval) return;
   lastSpawn = now;
   if (held > 650) return; // held sounds become strips when they end
-  const pn = pitchNorm(pitch);
-  const area = lerp(70*70, 430*430, Math.pow(loud, 0.8)) * (placedCount > 90 ? .6 : 1);
+  if (Math.random() > clamp((1 - P.wordsVsImages) * 2.2, .06, 1)) return; // "all words" keeps most paper out
+  const pn = P.pitchHeight ? pitchNorm(pitch) : Math.random();
+  const cap = Math.round(lerp(40, 160, P.density));
+  const area = lerp(70*70, 430*430, Math.pow(loud, 0.8)) * lerp(.75, 1.05, P.density) * (placedCount > cap ? .55 : 1);
   const aspect = rnd(.55, 1.8); const w = Math.sqrt(area * aspect), h = area / w;
-  // drift a cluster so the composition has gesture, pitch pulls it up/down
+  // layout lever: centered cluster <-> edge to edge
   const targetY = lerp(H * .86, H * .14, pn);
-  cluster.x = clamp(lerp(cluster.x, W/2, .12) + rnd(-170, 170), 180, W - 180);
-  cluster.y = lerp(cluster.y, targetY, .5) + rnd(-90, 90);
-  addScrap({ x: clamp(cluster.x + rnd(-60,60), w*.42 + 30, W - w*.42 - 30), y: clamp(cluster.y, h*.42 + 40, H - h*.42 - 130), w, h, rot: rnd(-.22, .22), lum: lerp(.18, .92, pn) });
+  const drift = lerp(70, 360, P.layout), pull = lerp(.3, 0, P.layout), m = lerp(330, 120, P.layout);
+  cluster.x = clamp(lerp(cluster.x, W/2, pull) + rnd(-drift, drift), m, W - m);
+  cluster.y = clamp(lerp(cluster.y, lerp(targetY, H/2, pull), .5) + rnd(-drift*.55, drift*.55), m * .8, H - m * .8);
+  const tr = lerp(.01, .55, P.tilt);
+  addScrap({ x: clamp(cluster.x + rnd(-60,60), w*.42 + 30, W - w*.42 - 30), y: clamp(cluster.y, h*.42 + 40, H - h*.42 - 130), w, h, rot: rnd(-tr, tr), lum: lerp(.18, .92, pn) });
 }
 function placeStrip(pitch, held, r) {
-  const pn = pitchNorm(pitch);
+  if (P.wordsVsImages > .9 && Math.random() < .7) return;
+  const pn = P.pitchHeight ? pitchNorm(pitch) : Math.random();
   const len = clamp(lerp(380, 1150, (held - 650) / 2600), 300, 1150);
   const th = rnd(46, 92);
-  addScrap({ x: clamp(cluster.x, len/2.6, W - len/2.6), y: lerp(H * .84, H * .16, pn) + rnd(-50, 50), w: len, h: th, rot: rnd(-.32, .32), lum: lerp(.2, .9, pn) });
+  const tr = lerp(.03, .6, P.tilt);
+  addScrap({ x: clamp(cluster.x, len/2.6, W - len/2.6), y: lerp(H * .84, H * .16, pn) + rnd(-50, 50), w: len, h: th, rot: rnd(-tr, tr), lum: lerp(.2, .9, pn) });
 }
 
 async function finish() {
@@ -628,7 +751,8 @@ $('playFile').onclick = () => { if (pendingFile) { $('playFile').style.display =
 $('againBtn').onclick = () => {
   collageNo++; $('noLabel').textContent = 'No. ' + pad3(collageNo);
   resetCanvas(); setRing(0); setStatus('ready'); showLevel(0);
-  state = 'idle'; $('after').classList.remove('show'); $('intro').classList.remove('hidden');
+  state = 'idle'; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
+  if (resetAfter) { P = { ...savedDefaults }; markPreset(null); syncAll(); }
 };
 $('saveBtn').onclick = () => {
   const url = exportPNG(); $('saveImg').src = url;
@@ -647,11 +771,124 @@ $('keySave').onclick = () => {
 $('keyClear').onclick = () => { dgKey = ''; try { localStorage.removeItem('vc_dg'); } catch (e) {} $('keyPanel').classList.remove('show'); refreshKeyUI(); };
 refreshKeyUI();
 
+// ---------- levers UI ----------
+const LEVERS = {
+  scatter:       ['Scatter',  'tidy line', 'letters flying'],
+  letterMix:     ['Letters',  'one typeface', 'every letter different'],
+  wordSize:      ['Word size','whisper-small', 'poster-big'],
+  wordsVsImages: ['Mix',      'all paper', 'all words'],
+  edge:          ['Edge',     'scissor-cut', 'hand-torn'],
+  tilt:          ['Tilt',     'straight', 'wild'],
+  density:       ['Density',  'airy', 'packed'],
+  layout:        ['Layout',   'centred', 'edge to edge'],
+  color:         ['Colour',   'black & white', 'full colour'],
+  sensitivity:   ['Hearing',  'needs a shout', 'hears a whisper'],
+};
+const leverInputs = {}; // key -> [inputs]
+function leverEl(key) {
+  const [name, l, r] = LEVERS[key];
+  const d = document.createElement('div'); d.className = 'lever';
+  d.innerHTML = `<span class="name">${name}</span><input type="range" min="0" max="100" step="1"><span class="ends"><span>${l}</span><span>${r}</span></span>`;
+  const inp = d.querySelector('input');
+  inp.value = Math.round(P[key] * 100);
+  inp.oninput = () => { setLever(key, inp.value / 100, inp); markPreset(null); };
+  (leverInputs[key] = leverInputs[key] || []).push(inp);
+  return d;
+}
+function setLever(key, v, from) {
+  P[key] = v;
+  for (const i of (leverInputs[key] || [])) if (i !== from) i.value = Math.round(v * 100);
+}
+function syncAll() {
+  for (const k in leverInputs) for (const i of leverInputs[k]) i.value = Math.round(P[k] * 100);
+  $('pitchHeight').checked = !!P.pitchHeight;
+  $('sessionSec').value = String(P.sessionSec || 15);
+  document.querySelectorAll('#stockChips .chip').forEach(c => c.classList.toggle('on', c.dataset.k === P.stock));
+  document.querySelectorAll('#seriesBox input').forEach(c => c.checked = !P.series || P.series.includes(c.value));
+  if (state === 'idle') paintPaper();
+}
+function presetChip(name, parent) {
+  const b = document.createElement('button'); b.className = 'chip'; b.dataset.p = name;
+  const blurbs = { 'Ransom note': 'mixed type, tidy words', 'Ilford': 'black & white, torn, airy', 'Metro': 'posters, packed, wild', 'Lettre': 'big serif words, few images' };
+  b.innerHTML = `${name}<small>${blurbs[name]}</small>`;
+  b.onclick = () => applyPreset(name);
+  parent.appendChild(b);
+}
+function applyPreset(name) {
+  P = { ...P, ...PRESETS[name] }; activePreset = name; markPreset(name); syncAll();
+}
+function markPreset(name) {
+  activePreset = name;
+  document.querySelectorAll('.chip[data-p]').forEach(c => c.classList.toggle('on', c.dataset.p === name));
+}
+Object.keys(PRESETS).forEach(n => { presetChip(n, $('presetChips')); presetChip(n, $('studioPresets')); });
+['scatter', 'color', 'density'].forEach(k => $('guestLevers').appendChild(leverEl(k)));
+['scatter', 'letterMix', 'wordSize', 'wordsVsImages'].forEach(k => $('lvWords').appendChild(leverEl(k)));
+['edge', 'tilt', 'density', 'layout'].forEach(k => $('lvPaper').appendChild(leverEl(k)));
+['color'].forEach(k => $('lvColor').appendChild(leverEl(k)));
+['sensitivity'].forEach(k => $('lvVoice').appendChild(leverEl(k)));
+Object.entries(SERIES).forEach(([k, label]) => {
+  const l = document.createElement('label'); l.className = 'ck';
+  l.innerHTML = `<input type="checkbox" value="${k}"> ${label}`;
+  l.querySelector('input').onchange = () => {
+    const on = [...document.querySelectorAll('#seriesBox input')].filter(i => i.checked).map(i => i.value);
+    P.series = on.length === Object.keys(SERIES).length ? null : on; markPreset(null);
+  };
+  $('seriesBox').appendChild(l);
+});
+Object.keys(STOCKS).forEach(k => {
+  const b = document.createElement('button'); b.className = 'chip'; b.dataset.k = k; b.textContent = k;
+  b.onclick = () => { P.stock = k; markPreset(null); syncAll(); };
+  $('stockChips').appendChild(b);
+});
+$('pitchHeight').onchange = e => { P.pitchHeight = e.target.checked; };
+$('sessionSec').onchange = e => { P.sessionSec = parseInt(e.target.value, 10); };
+let resetAfter = true; try { resetAfter = localStorage.getItem('vc_resetAfter') !== '0'; } catch (e) {}
+$('resetAfter').checked = resetAfter;
+$('resetAfter').onchange = e => { resetAfter = e.target.checked; try { localStorage.setItem('vc_resetAfter', resetAfter ? '1' : '0'); } catch (x) {} };
+let savedDefaults = { ...P };
+$('saveDefaults').onclick = () => { savedDefaults = { ...P }; try { localStorage.setItem('vc_defaults', JSON.stringify(P)); } catch (e) {} $('studioNote').textContent = 'Saved. Every guest now starts from these settings.'; };
+$('resetDefaults').onclick = () => { P = { ...DEFAULTS }; savedDefaults = { ...P }; try { localStorage.removeItem('vc_defaults'); } catch (e) {} markPreset(null); syncAll(); $('studioNote').textContent = 'Back to factory settings.'; };
+const openStudio = () => { syncAll(); $('studio').classList.add('show'); };
+$('closeStudio').onclick = () => $('studio').classList.remove('show');
+$('studio').onclick = e => { if (e.target.id === 'studio') $('studio').classList.remove('show'); };
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 's' || e.key === 'S') { $('studio').classList.contains('show') ? $('studio').classList.remove('show') : openStudio(); }
+  if (e.key === 'Escape') $('studio').classList.remove('show');
+});
+let taps = [];
+$('noLabel').addEventListener('click', () => { const t = performance.now(); taps = taps.filter(x => t - x < 700); taps.push(t); if (taps.length >= 3) { taps = []; openStudio(); } });
+
+// ---------- MIDI knobs ----------
+const MIDI_ORDER = ['scatter', 'color', 'density', 'letterMix', 'wordSize', 'wordsVsImages', 'edge', 'tilt'];
+let midiMap = {}; try { midiMap = JSON.parse(localStorage.getItem('vc_midi') || '{}'); } catch (e) {}
+$('midiBtn').onclick = async () => {
+  if (!navigator.requestMIDIAccess) { $('midiNote').textContent = 'This browser has no Web MIDI. Use Chrome on a laptop.'; return; }
+  try {
+    const access = await navigator.requestMIDIAccess();
+    const hook = () => access.inputs.forEach(inp => { inp.onmidimessage = onMidi; });
+    hook(); access.onstatechange = hook;
+    const n = [...access.inputs.values()].length;
+    $('midiNote').textContent = n ? `Connected (${n} device${n > 1 ? 's' : ''}). Turn knobs to assign: ${MIDI_ORDER.map(k => LEVERS[k][0]).join(' · ')}.` : 'No MIDI device found. Plug one in and press again.';
+  } catch (e) { $('midiNote').textContent = 'MIDI permission was refused.'; }
+};
+function onMidi(ev) {
+  const [st, cc, val] = ev.data; if ((st & 0xf0) !== 0xb0) return; // control change only
+  let key = midiMap[cc];
+  if (!key) {
+    const used = Object.values(midiMap); key = MIDI_ORDER.find(k => !used.includes(k)); if (!key) return;
+    midiMap[cc] = key; try { localStorage.setItem('vc_midi', JSON.stringify(midiMap)); } catch (e) {}
+    $('midiNote').textContent = `Knob ${cc} → ${LEVERS[key][0]}`;
+  }
+  setLever(key, val / 127); markPreset(null);
+}
+
 (function frame() { render(); requestAnimationFrame(frame); })();
 loadSources();
 
 // test hook: lets an automated check feed fake "voice" without a microphone
-window.__vc = { addScrap, placeStrip, placeWord, finish: async () => { state = 'listening'; await finish(); }, get sources() { return sources.length; } };
+window.__vc = { applyPreset, get P() { return P; }, addScrap, placeStrip, placeWord, finish: async () => { state = 'listening'; await finish(); }, get sources() { return sources.length; } };
 </script>
 </body>
 </html>
