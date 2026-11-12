@@ -77,8 +77,8 @@
   .after.show { display:flex; }
   .after button { min-width:0; flex:1 1 30%; padding:12px 10px; font-size:12px; }
   /* studio */
-  .studio, .wall { position:fixed; inset:0; background:rgba(20,20,20,.55); display:none; align-items:flex-start; justify-content:center; z-index:20; overflow:auto; padding:20px 12px 60px; }
-  .studio.show, .wall.show { display:flex; }
+  .studio, .archive { position:fixed; inset:0; background:rgba(20,20,20,.55); display:none; align-items:flex-start; justify-content:center; z-index:20; overflow:auto; padding:20px 12px 60px; }
+  .studio.show, .archive.show { display:flex; }
   .panel { background:var(--paper); width:100%; max-width:640px; padding:22px 20px 26px; display:flex; flex-direction:column; gap:14px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
   .panel h2 { font-family:'Instrument Serif', serif; font-weight:400; font-size:34px; margin:0; }
   .panel button { min-width:0; padding:10px 14px; font-size:11px; }
@@ -100,7 +100,19 @@
   table.patch td button.pos { background:var(--ink); color:var(--paper); }
   table.patch td button.neg { background:#c0262d; border-color:#c0262d; color:#fff; }
   /* wall */
-  .wall .panel { max-width:1100px; }
+  .archive .panel { max-width:1100px; }
+  .seg.on { background:var(--ink); color:var(--paper); }
+  .wallgrid figure { cursor:pointer; } .wallgrid figure:hover img { outline:2px solid var(--ink); outline-offset:3px; }
+  .wallgrid figcaption b { color:var(--ink); font-weight:500; } .wallgrid figcaption span { text-transform:uppercase; letter-spacing:.06em; font-size:9px; }
+  .detail { display:none; gap:20px; align-items:flex-start; } .detail.show { display:flex; flex-wrap:wrap; }
+  .detail img { max-width:min(100%, 520px); max-height:72vh; box-shadow:0 10px 30px rgba(0,0,0,.2); }
+  .detmeta { flex:1; min-width:240px; display:flex; flex-direction:column; gap:12px; } .detmeta h3 { font-family:'Instrument Serif', serif; font-weight:400; font-size:30px; margin:0; }
+  .namefield { font:inherit; font-size:14px; padding:11px 12px; border:1px solid var(--ink); background:#fff; width:100%; max-width:300px; text-align:center; }
+  .sign { width:100%; max-width:560px; display:none; flex-direction:column; gap:6px; margin-top:12px; }
+  .after.show + .sign { display:flex; }
+  .sign input { font:inherit; font-size:14px; padding:11px 12px; border:1px solid var(--ink); background:#fff; }
+  .remixchip { display:flex; align-items:center; gap:8px; font-size:11px; background:var(--ink); color:var(--paper); padding:7px 10px; }
+  .remixchip button { min-width:0; padding:2px 8px; font-size:11px; background:transparent; color:var(--paper); border:1px solid var(--paper); }
   .wallgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:14px; }
   .wallgrid figure { margin:0; } .wallgrid img { width:100%; display:block; box-shadow:0 6px 16px rgba(0,0,0,.18); }
   .wallgrid figcaption { font-size:10px; color:var(--dim); margin-top:6px; line-height:1.4; }
@@ -134,6 +146,7 @@
   </div>
   <div class="overlay" id="intro">
     <div class="modes"><button class="mode on" id="modeCollage">Collage<small>tear paper</small></button><button class="mode" id="modePaint">Paint<small>oil &amp; scratches</small></button></div>
+    <div class="remixchip" id="remixChip" style="display:none"><span id="remixText"></span><button id="remixCancel">✕</button></div>
     <p class="title">Say anything,<br><em>in any language.</em></p>
     <p class="sub" id="introSub"></p>
     <div class="row" style="flex-direction:column;align-items:center">
@@ -142,6 +155,8 @@
       <input id="fileIn" type="file" accept="audio/*,video/*">
       <button id="playFile" style="display:none">Tear with <span id="fileName">recording</span></button>
     </div>
+    <input class="namefield" id="nameIn" type="text" maxlength="40" autocomplete="off" placeholder="Your name (to sign it, optional)">
+    <button class="link" id="openArchive">See everyone’s work →</button>
     <button class="link" id="keyToggle">Words: off · add Deepgram key</button>
     <div class="keypanel" id="keyPanel">
       <input id="keyIn" type="password" autocomplete="off" placeholder="Paste your Deepgram API key">
@@ -182,12 +197,14 @@
   <button id="videoBtn">Save video</button>
   <button class="ghost" id="listenBtn">Listen</button>
   <button class="ghost" id="sculptBtn">3D sculpture</button>
+  <button class="ghost" id="archiveBtn">Archive</button>
   <button class="ghost" id="againBtn">Again</button>
 </div>
+<div class="sign"><span class="lbl" id="signNote"></span><input id="nameAfter" type="text" maxlength="40" autocomplete="off" placeholder="Your name"></div>
 
 <div class="studio" id="studio">
   <div class="panel">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2>Studio</h2><span class="lbl">only for Aimi · S = studio · W = wall</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2>Studio</h2><span class="lbl">only for Aimi · S = studio · W = archive</span></div>
     <div><div class="lbl" style="margin-bottom:8px">Presets</div><div class="chips" id="studioPresets"></div></div>
     <div id="studioSections"></div>
     <details class="sec"><summary>Patch bay · voice → visuals</summary>
@@ -208,7 +225,7 @@
         <label class="ck"><input type="checkbox" id="resetAfter"> Reset guest choices after each collage</label>
         <div class="row" style="justify-content:flex-start"><button class="ghost" id="midiBtn">Connect MIDI knobs</button><button class="ghost" id="midiReset">Forget knob assignments</button></div>
         <p class="note" id="midiNote"></p>
-        <div class="row" style="justify-content:flex-start"><button class="ghost" id="openWall">Open tonight’s wall</button></div>
+        <div class="row" style="justify-content:flex-start"><button class="ghost" id="openWall">Open the archive (download all / delete here)</button></div>
       </div>
     </details>
     <div class="row" style="justify-content:flex-start"><button id="saveDefaults">Save as defaults</button><button class="ghost" id="resetDefaults">Factory reset</button><button class="ghost" id="closeStudio">Close</button></div>
@@ -216,21 +233,34 @@
   </div>
 </div>
 
-<div class="wall" id="wall">
+<div class="archive" id="archive">
   <div class="panel">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2>Tonight’s wall</h2><span class="lbl" id="wallMeta"></span></div>
-    <div class="wallgrid" id="wallGrid"></div>
-    <div class="row" style="justify-content:flex-start"><button class="ghost" id="wallClose">Close</button><button class="ghost" id="wallClear">Clear the wall</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2>Archive</h2><span class="lbl" id="archMeta"></span></div>
+    <div id="archList">
+      <div class="row" style="justify-content:flex-start;margin-bottom:12px"><button class="ghost seg" id="archTonight">Tonight</button><button class="ghost seg" id="archAll">Everything</button></div>
+      <p class="note" style="margin-bottom:12px">Every piece made on this device. Tap one to download it, or remix it: start from that exact piece and add your own voice on top.</p>
+      <div class="wallgrid" id="archGrid"></div>
+    </div>
+    <div class="detail" id="archDetail">
+      <img id="detImg" alt="">
+      <div class="detmeta">
+        <h3 id="detTitle"></h3>
+        <p class="note" id="detMeta" style="white-space:pre-line"></p>
+        <div class="row" style="justify-content:flex-start"><button id="detRemix">Remix this</button><button class="ghost" id="detDownload">Download image</button><button class="ghost" id="detVideo">Download video</button></div>
+        <div class="row" style="justify-content:flex-start"><button class="ghost" id="detBack">← All pieces</button><button class="ghost" id="detDelete">Delete</button></div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:flex-start"><button class="ghost" id="archClose">Close</button><span id="archAdmin" style="display:none"><button class="ghost" id="archZip">Download everything (.zip)</button> <button class="ghost" id="archClear">Delete the whole archive</button></span></div>
   </div>
 </div>
 
 <footer>v4 · volume, pitch, brightness, speed, breath &amp; pauses → paper · words → cut-out letters · language → city · silence → glue.<br>Material: Aimi's photographs, paintings and posters · rienespecial.com</footer>
 
-<script src="js/sources.js?v=430ebd00"></script>
-<script src="js/params.js?v=430ebd00"></script>
-<script src="js/paint.js?v=430ebd00"></script>
-<script src="js/engine.js?v=430ebd00"></script>
-<script src="js/audio.js?v=430ebd00"></script>
-<script src="js/ui.js?v=430ebd00"></script>
+<script src="js/sources.js?v=986caef5"></script>
+<script src="js/params.js?v=986caef5"></script>
+<script src="js/paint.js?v=986caef5"></script>
+<script src="js/engine.js?v=986caef5"></script>
+<script src="js/audio.js?v=986caef5"></script>
+<script src="js/ui.js?v=986caef5"></script>
 </body>
 </html>

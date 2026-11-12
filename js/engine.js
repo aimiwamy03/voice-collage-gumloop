@@ -26,7 +26,7 @@ const grainHeavy = makeGrain(256, 256, 140);
 function applyShape() {
   const [w, h] = SHAPES[P.shape] || SHAPES.portrait;
   W = w; H = h; cv.width = W; cv.height = H;
-  for (const k of ['paper', 'settled', 'words', 'ghost']) layers[k] = mk(W, H);
+  for (const k of ['paper', 'settled', 'words', 'ghost', 'caption']) layers[k] = mk(W, H);
   sctx = layers.settled.getContext('2d'); wctx = layers.words.getContext('2d'); gctx = layers.ghost.getContext('2d');
   $('stage').style.aspectRatio = `${W} / ${H}`;
   seedShape(); paintPaper();
@@ -561,6 +561,7 @@ function composite(g, live) {
   }
   drawFx(g, live);
   drawDeco(g);
+  g.drawImage(layers.caption, 0, 0);
   g.restore();
 }
 function render() {
@@ -584,10 +585,13 @@ function exportCanvas() {
   return out;
 }
 function clearPieces() {
-  sctx.clearRect(0, 0, W, H); wctx.clearRect(0, 0, W, H); gctx.clearRect(0, 0, W, H);
+  sctx.clearRect(0, 0, W, H); wctx.clearRect(0, 0, W, H); gctx.clearRect(0, 0, W, H); layers.caption.getContext('2d').clearRect(0, 0, W, H);
   anims = []; history = []; highlight = null; captionText = '';
   if (typeof resetPaint === 'function') resetPaint();
 }
+// remix: start on top of someone else's finished piece
+let remixFrom = null; // { id, no, name, img }
+function drawRemixBase() { if (remixFrom && remixFrom.img) sctx.drawImage(remixFrom.img, 0, 0, W, H); }
 // faded photocopy of the previous guest's collage
 let lastCollage = null;
 function prepareGhost() {

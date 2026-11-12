@@ -150,17 +150,16 @@ $('resetAfter').onchange = e => { resetAfter = e.target.checked; try { localStor
 $('saveDefaults').onclick = () => { savedDefaults = JSON.parse(JSON.stringify(P)); try { localStorage.setItem('vc4_defaults', JSON.stringify(P)); } catch (e) {} note('Saved. Every guest now starts from these settings.'); };
 $('resetDefaults').onclick = () => { P = JSON.parse(JSON.stringify(DEFAULTS)); savedDefaults = JSON.parse(JSON.stringify(P)); try { localStorage.removeItem('vc4_defaults'); } catch (e) {} applyShape(); syncAll(); markPreset(null); note('Back to factory settings.'); };
 const note = t => { $('studioNote').textContent = t; };
-const openStudio = () => { syncAll(); $('studio').classList.add('show'); };
+const openStudio = () => { studioUnlocked = true; syncAll(); $('studio').classList.add('show'); };
 $('closeStudio').onclick = () => $('studio').classList.remove('show');
 $('studio').onclick = e => { if (e.target.id === 'studio') $('studio').classList.remove('show'); };
-$('openWall').onclick = () => { $('studio').classList.remove('show'); openWall(); };
 let taps = [];
 $('noLabel').addEventListener('click', () => { const t = performance.now(); taps = taps.filter(x => t - x < 700); taps.push(t); if (taps.length >= 3) { taps = []; openStudio(); } });
 document.addEventListener('keydown', e => {
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
   if (e.key === 's' || e.key === 'S') $('studio').classList.contains('show') ? $('studio').classList.remove('show') : openStudio();
-  if (e.key === 'w' || e.key === 'W') $('wall').classList.contains('show') ? $('wall').classList.remove('show') : openWall();
-  if (e.key === 'Escape') { $('studio').classList.remove('show'); $('wall').classList.remove('show'); close3D(); }
+  if (e.key === 'w' || e.key === 'W') $('archive').classList.contains('show') ? $('archive').classList.remove('show') : openArchive();
+  if (e.key === 'Escape') { $('studio').classList.remove('show'); $('archive').classList.remove('show'); close3D(); }
 });
 
 // ---------- MIDI knobs (learn) ----------
@@ -202,7 +201,9 @@ async function afterCollage() {
   $('videoBtn').style.display = videoBlob ? '' : 'none';
   $('listenBtn').style.display = audioBuffer ? '' : 'none';
   $('after').classList.add('show');
-  try { await saveToWall(); } catch (e) {}
+  $('signNote').textContent = artistName ? `Signed “${artistName}” — saved to the archive.` : 'Saved to the archive. Sign it with your name:';
+  $('nameAfter').value = artistName;
+  try { await saveWork(); } catch (e) { $('signNote').textContent = 'Couldn’t save to the archive on this device.'; }
   try { localStorage.setItem('vc_no', String(collageNo + 1)); } catch (e) {}
   if (P.autoSculpture) open3D();
 }
@@ -214,16 +215,18 @@ async function shareOrDownload(blob, name) {
   try { const file = new File([blob], name, { type: blob.type }); if (navigator.canShare && navigator.canShare({ files: [file] }) && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) { await navigator.share({ files: [file] }); return; } } catch (e) {}
   downloadBlob(blob, name);
 }
-$('saveBtn').onclick = () => { (finalCanvas || exportCanvas()).toBlob(b => shareOrDownload(b, `collage-${pad3(collageNo)}.png`), 'image/png'); };
-$('videoBtn').onclick = () => { if (videoBlob) shareOrDownload(videoBlob, `collage-${pad3(collageNo)}.${videoBlob.type.includes('mp4') ? 'mp4' : 'webm'}`); };
+$('saveBtn').onclick = () => { (finalCanvas || exportCanvas()).toBlob(b => shareOrDownload(b, fileBase({ no: collageNo, name: artistName }) + '.png'), 'image/png'); };
+$('videoBtn').onclick = () => { if (videoBlob) shareOrDownload(videoBlob, fileBase({ no: collageNo, name: artistName }) + (videoBlob.type.includes('mp4') ? '.mp4' : '.webm')); };
 $('listenBtn').onclick = () => { listenMode = !listenMode; $('listenBtn').classList.toggle('on', listenMode); $('stage').classList.toggle('listening', listenMode); setStatus(listenMode ? 'Tap any piece to hear the moment that tore it.' : 'Done. Save it, listen back, or open it in 3D.'); };
 $('sculptBtn').onclick = () => open3D();
-$('againBtn').onclick = () => {
-  collageNo++; $('noLabel').textContent = 'No. ' + pad3(collageNo); close3D(); listenMode = false; $('listenBtn').classList.remove('on'); $('stage').classList.remove('listening');
-  if (resetAfter) { const m = P.mode, ap = activePreset; P = JSON.parse(JSON.stringify(savedDefaults)); if (m !== P.mode) { P.mode = m; if (m === 'paint') P = { ...P, ...JSON.parse(JSON.stringify(PAINT_PRESETS['Oil sketch'])) }; } markPreset(null); }
-  applyShape(); clearPieces(); syncAll(); syncMode(); state = 'idle'; showIdleTime(); setStatus(P.mode === 'paint' ? 'Tap “Paint with my voice” to start.' : 'Tap “Use microphone” to start.'); showLevel(0); refreshKeyUI(); $('hud').classList.add('idle'); $('voiceHint').textContent = '· speak past the red line to tear paper';
-  state = 'idle'; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
-};
+function resetToIdle(resetParams) {
+  if (state === 'done' || state === 'idle') { if (state === 'done') { collageNo++; } }
+  $('noLabel').textContent = 'No. ' + pad3(collageNo); close3D(); listenMode = false; $('listenBtn').classList.remove('on'); $('stage').classList.remove('listening');
+  if (resetParams && resetAfter) { const m = P.mode; P = JSON.parse(JSON.stringify(savedDefaults)); if (m !== P.mode) { P.mode = m; if (m === 'paint') P = { ...P, ...JSON.parse(JSON.stringify(PAINT_PRESETS['Oil sketch'])) }; } markPreset(null); }
+  applyShape(); clearPieces(); syncAll(); syncMode(); state = 'idle'; showIdleTime(); showLevel(0); refreshKeyUI(); $('hud').classList.add('idle');
+  captionInfo = null; currentWorkId = null; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
+}
+$('againBtn').onclick = () => { resetToIdle(true); remixFrom = null; showRemixChip(); setArtistName('', false); $('nameIn').value = ''; };
 cv.addEventListener('click', ev => {
   if (state !== 'done' || !listenMode) return;
   const r = cv.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width, py = (ev.clientY - r.top) * H / r.height;
@@ -241,29 +244,136 @@ cv.addEventListener('click', ev => {
   if (spokenWords.length) { const w = spokenWords[Math.floor(rnd(spokenWords.length))]; playWord(w); setStatus(`▶ “${w.text}”`); }
 });
 
-// ---------- room wall (every collage tonight, on this device) ----------
-function idb() { return new Promise((res, rej) => { const r = indexedDB.open('voice-collage', 1); r.onupgradeneeded = () => r.result.createObjectStore('wall', { keyPath: 'id', autoIncrement: true }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-async function saveToWall() {
-  const t = mk(420, Math.round(420 * H / W)); t.getContext('2d').drawImage(finalCanvas, 0, 0, t.width, t.height);
-  const db = await idb(); const tx = db.transaction('wall', 'readwrite');
-  tx.objectStore('wall').add({ no: collageNo, img: t.toDataURL('image/jpeg', .82), langs: [...heardLangs.keys()], words: heardWords.slice(0, 40), at: Date.now(), shape: P.shape });
-  await new Promise(r => tx.oncomplete = r);
+// ---------- archive: every piece made on this device, full size, signed, downloadable, remixable ----------
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('voice-collage', 2);
+    r.onupgradeneeded = () => { const db = r.result; if (!db.objectStoreNames.contains('wall')) db.createObjectStore('wall', { keyPath: 'id', autoIncrement: true }); if (!db.objectStoreNames.contains('works')) db.createObjectStore('works', { keyPath: 'id', autoIncrement: true }); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
 }
-async function readWall() { const db = await idb(); return new Promise(res => { const out = []; const c = db.transaction('wall').objectStore('wall').openCursor(); c.onsuccess = () => { const cur = c.result; if (cur) { out.push(cur.value); cur.continue(); } else res(out); }; }); }
-async function openWall() {
-  let items = []; try { items = await readWall(); } catch (e) {}
-  const since = Date.now() - 1000 * 60 * 60 * 14; const tonight = items.filter(i => i.at > since);
-  const langs = new Map(); tonight.forEach(i => (i.langs || []).forEach(l => langs.set(l, (langs.get(l) || 0) + 1)));
+const toBlob = (c, type = 'image/jpeg', q = .92) => new Promise(r => c.toBlob(r, type, q));
+function thumbOf(c) { const t = mk(480, Math.round(480 * c.height / c.width)); t.getContext('2d').drawImage(c, 0, 0, t.width, t.height); return t.toDataURL('image/jpeg', .82); }
+const slug = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9぀-鿿가-힯]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
+const fileBase = w => `collage-${pad3(w.no)}${w.name ? '-' + slug(w.name) : ''}`;
+let currentWorkId = null;
+async function saveWork() {
+  const rec = {
+    no: collageNo, name: artistName, at: Date.now(), mode: P.mode, shape: P.shape,
+    img: await toBlob(finalCanvas), thumb: thumbOf(finalCanvas), video: videoBlob || null,
+    words: heardWords.slice(0, 80), langs: [...heardLangs.keys()], params: JSON.parse(JSON.stringify(P)),
+    parent: remixFrom ? remixFrom.id : null, parentNo: remixFrom ? remixFrom.no : null, parentName: remixFrom ? remixFrom.name : '',
+  };
+  const db = await idb(), tx = db.transaction('works', 'readwrite'), req = tx.objectStore('works').add(rec);
+  await new Promise(r => tx.oncomplete = r); currentWorkId = req.result; return currentWorkId;
+}
+async function updateWork(id, patch) {
+  const db = await idb(), tx = db.transaction('works', 'readwrite'), st = tx.objectStore('works'), g = st.get(id);
+  await new Promise(r => g.onsuccess = r); if (g.result) st.put({ ...g.result, ...patch }); await new Promise(r => tx.oncomplete = r);
+}
+async function getWork(id) { const db = await idb(); return new Promise(res => { const g = db.transaction('works').objectStore('works').get(id); g.onsuccess = () => res(g.result); g.onerror = () => res(null); }); }
+async function allWorks(withBlobs) {
+  const db = await idb();
+  return new Promise(res => { const out = []; const c = db.transaction('works').objectStore('works').openCursor(); c.onsuccess = () => { const cur = c.result; if (cur) { const v = cur.value; out.push(withBlobs ? v : { ...v, img: null, video: v.video ? true : null }); cur.continue(); } else res(out); }; });
+}
+async function deleteWork(id) { const db = await idb(), tx = db.transaction('works', 'readwrite'); tx.objectStore('works').delete(id); await new Promise(r => tx.oncomplete = r); }
+
+// signing: a name typed before or after a piece goes into its caption and the archive
+let nameTimer = null;
+function setArtistName(v, fromAfter) {
+  artistName = (v || '').trim().slice(0, 40);
+  if (!fromAfter) $('nameAfter').value = artistName; else $('nameIn').value = artistName;
+  if (state === 'done' && captionInfo) {
+    clearTimeout(nameTimer);
+    nameTimer = setTimeout(async () => {
+      redrawCaption(); render(); finalCanvas = exportCanvas();
+      if (currentWorkId) { try { await updateWork(currentWorkId, { name: artistName, img: await toBlob(finalCanvas), thumb: thumbOf(finalCanvas) }); } catch (e) {} }
+      $('signNote').textContent = artistName ? `Signed — saved to the archive as “${artistName}”.` : 'Unsigned.';
+    }, 500);
+  }
+}
+$('nameIn').oninput = e => setArtistName(e.target.value, false);
+$('nameAfter').oninput = e => setArtistName(e.target.value, true);
+
+// archive view
+let archiveFilter = 'tonight', studioUnlocked = false, detailURLs = [];
+async function openArchive() {
+  let items = []; try { items = await allWorks(false); } catch (e) {}
+  const since = Date.now() - 1000 * 60 * 60 * 14, shown = (archiveFilter === 'tonight' ? items.filter(i => i.at > since) : items).slice().reverse();
+  const langs = new Map(); shown.forEach(i => (i.langs || []).forEach(l => langs.set(l, (langs.get(l) || 0) + 1)));
   let dn = null; try { dn = new Intl.DisplayNames(['en'], { type: 'language' }); } catch (e) {}
-  $('wallMeta').textContent = `${tonight.length} voice${tonight.length === 1 ? '' : 's'} tonight` + (langs.size ? ` · ${[...langs.entries()].sort((a, b) => b[1] - a[1]).map(([l, n]) => `${(dn && dn.of(l)) || l} ${n}`).join(' · ')}` : '');
-  $('wallGrid').innerHTML = tonight.slice().reverse().map(i => `<figure><img src="${i.img}" alt="Collage ${i.no}"><figcaption>No. ${pad3(i.no)}${i.words && i.words.length ? ' · “' + i.words.slice(0, 4).join(' ') + '”' : ''}</figcaption></figure>`).join('') || '<p class="note">No collages yet tonight.</p>';
-  $('wall').classList.add('show'); $('wallClear').textContent = 'Clear the wall'; $('wallClear').dataset.armed = '';
+  $('archMeta').textContent = `${shown.length} piece${shown.length === 1 ? '' : 's'}${archiveFilter === 'tonight' ? ' tonight' : ' in total'}` + (langs.size ? ` · ${[...langs.entries()].sort((a, b) => b[1] - a[1]).map(([l, n]) => `${(dn && dn.of(l)) || l} ${n}`).join(' · ')}` : '');
+  $('archTonight').classList.toggle('on', archiveFilter === 'tonight'); $('archAll').classList.toggle('on', archiveFilter === 'all');
+  $('archGrid').innerHTML = shown.map(i => `<figure data-id="${i.id}" tabindex="0"><img src="${i.thumb}" alt="Collage ${i.no}"><figcaption><b>No. ${pad3(i.no)}${i.name ? ' · ' + escapeHtml(i.name) : ''}</b>${i.parentNo ? `<br>after No. ${pad3(i.parentNo)}${i.parentName ? ' by ' + escapeHtml(i.parentName) : ''}` : ''}${i.words && i.words.length ? '<br>“' + escapeHtml(i.words.slice(0, 5).join(' ')) + '”' : ''}<br><span>${i.mode === 'paint' ? 'paint' : 'collage'}${i.video ? ' · video' : ''}</span></figcaption></figure>`).join('') || '<p class="note">Nothing here yet — the first piece will appear as soon as someone finishes.</p>';
+  $('archGrid').querySelectorAll('figure').forEach(f => { f.onclick = () => openDetail(Number(f.dataset.id)); f.onkeydown = e => { if (e.key === 'Enter') openDetail(Number(f.dataset.id)); }; });
+  $('archDetail').classList.remove('show'); $('archList').style.display = '';
+  $('archAdmin').style.display = studioUnlocked ? '' : 'none';
+  $('archive').classList.add('show');
 }
-$('wallClose').onclick = () => $('wall').classList.remove('show');
-$('wallClear').onclick = async () => {
-  if (!$('wallClear').dataset.armed) { $('wallClear').dataset.armed = '1'; $('wallClear').textContent = 'Tap again to delete every collage'; return; }
-  const db = await idb(); const tx = db.transaction('wall', 'readwrite'); tx.objectStore('wall').clear(); await new Promise(r => tx.oncomplete = r); openWall();
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+async function openDetail(id) {
+  const w = await getWork(id); if (!w) return;
+  detailURLs.forEach(u => URL.revokeObjectURL(u)); detailURLs = [];
+  const u = URL.createObjectURL(w.img); detailURLs.push(u);
+  $('detImg').src = u;
+  const d = new Date(w.at);
+  $('detTitle').textContent = `No. ${pad3(w.no)}${w.name ? ' — ' + w.name : ''}`;
+  $('detMeta').textContent = [`${w.mode === 'paint' ? 'Paint' : 'Collage'} · ${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, w.parentNo ? `after No. ${pad3(w.parentNo)}${w.parentName ? ' by ' + w.parentName : ''}` : '', w.words && w.words.length ? `“${w.words.join(' ')}”` : ''].filter(Boolean).join('\n');
+  $('detVideo').style.display = w.video ? '' : 'none';
+  $('detDelete').style.display = studioUnlocked ? '' : 'none'; $('detDelete').textContent = 'Delete'; $('detDelete').dataset.armed = '';
+  $('detImg').onclick = null;
+  $('detDownload').onclick = () => shareOrDownload(w.img, fileBase(w) + '.jpg');
+  $('detVideo').onclick = () => w.video && shareOrDownload(w.video, fileBase(w) + (w.video.type.includes('mp4') ? '.mp4' : '.webm'));
+  $('detRemix').onclick = () => startRemix(w);
+  $('detDelete').onclick = async () => { if (!$('detDelete').dataset.armed) { $('detDelete').dataset.armed = '1'; $('detDelete').textContent = 'Tap again to delete'; return; } await deleteWork(w.id); openArchive(); };
+  $('archList').style.display = 'none'; $('archDetail').classList.add('show');
+}
+$('detBack').onclick = () => { $('archDetail').classList.remove('show'); $('archList').style.display = ''; };
+$('archClose').onclick = () => $('archive').classList.remove('show');
+$('archive').onclick = e => { if (e.target.id === 'archive') $('archive').classList.remove('show'); };
+$('archTonight').onclick = () => { archiveFilter = 'tonight'; openArchive(); };
+$('archAll').onclick = () => { archiveFilter = 'all'; openArchive(); };
+$('openArchive').onclick = () => openArchive();
+$('archiveBtn').onclick = () => openArchive();
+$('openWall').onclick = () => { $('studio').classList.remove('show'); openArchive(); };
+$('archZip').onclick = async () => {
+  $('archZip').textContent = 'Packing…';
+  try {
+    if (!window.JSZip) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/vendor/jszip.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+    const works = await allWorks(true), zip = new JSZip(), meta = [];
+    for (const w of works) {
+      const base = fileBase(w); zip.file(base + '.jpg', w.img); if (w.video) zip.file(base + (w.video.type.includes('mp4') ? '.mp4' : '.webm'), w.video);
+      meta.push({ no: w.no, name: w.name, at: new Date(w.at).toISOString(), mode: w.mode, words: w.words, languages: w.langs, after: w.parentNo || null, afterName: w.parentName || null, settings: w.params });
+    }
+    zip.file('archive.json', JSON.stringify(meta, null, 2));
+    downloadBlob(await zip.generateAsync({ type: 'blob' }), `voice-collage-archive-${new Date().toISOString().slice(0, 10)}.zip`);
+  } catch (e) { $('archMeta').textContent = 'Could not build the zip: ' + e.message; }
+  $('archZip').textContent = 'Download everything (.zip)';
 };
+$('archClear').onclick = async () => {
+  if (!$('archClear').dataset.armed) { $('archClear').dataset.armed = '1'; $('archClear').textContent = 'Tap again to delete the whole archive'; return; }
+  const db = await idb(), tx = db.transaction('works', 'readwrite'); tx.objectStore('works').clear(); await new Promise(r => tx.oncomplete = r);
+  $('archClear').dataset.armed = ''; $('archClear').textContent = 'Delete the whole archive'; openArchive();
+};
+
+// remix: load someone's piece with its exact settings and paint/tear on top of it
+async function startRemix(w) {
+  const img = new Image(); const url = URL.createObjectURL(w.img);
+  await new Promise(r => { img.onload = r; img.onerror = r; img.src = url; });
+  remixFrom = { id: w.id, no: w.no, name: w.name || '', img };
+  $('archive').classList.remove('show');
+  resetToIdle(false);
+  P = { ...JSON.parse(JSON.stringify(DEFAULTS)), ...JSON.parse(JSON.stringify(w.params || {})), autoSculpture: false };
+  applyShape(); syncAll(); syncMode(); markPreset(null);
+  sctx.drawImage(img, 0, 0, W, H); render();
+  showRemixChip();
+}
+function showRemixChip() {
+  const c = $('remixChip');
+  if (!remixFrom) { c.style.display = 'none'; return; }
+  c.style.display = ''; $('remixText').textContent = `Remixing No. ${pad3(remixFrom.no)}${remixFrom.name ? ' by ' + remixFrom.name : ''} — your voice goes on top`;
+}
+$('remixCancel').onclick = () => { remixFrom = null; showRemixChip(); clearPieces(); render(); };
 
 // ---------- 3D sculpture ----------
 let three = null, r3 = null;
@@ -329,4 +439,4 @@ applyShape(); syncAll(); refreshKeyUI(); showIdleTime(); syncMode();
   requestAnimationFrame(frame);
 })();
 loadSources();
-window.__vc = { applyPreset, surprise, get P() { return P; }, placeWord, open3D, openWall, get history() { return history; } };
+window.__vc = { applyPreset, surprise, get P() { return P; }, placeWord, open3D, openArchive, startRemix, allWorks, get history() { return history; } };

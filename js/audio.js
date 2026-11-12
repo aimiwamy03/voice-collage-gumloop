@@ -250,7 +250,7 @@ async function startFile(file) {
   begin(false);
 }
 function begin(calibrate) {
-  clearPieces(); resetLayout(); seedShape(); prepareGhost();
+  clearPieces(); resetLayout(); seedShape(); prepareGhost(); drawRemixBase();
   wordsPlaced = 0; wordRects = []; heardWords = []; heardLangs.clear(); currentLang = null; totalVoiced = 0; onsets = []; $('heard').textContent = '';
   for (const k in F) F[k] = k === 'pitch' || k === 'brightness' ? .5 : 0;
   $('intro').classList.add('hidden'); $('after').classList.remove('show'); $('controls').classList.add('hidden');
@@ -327,21 +327,33 @@ async function finish() {
   state = 'done'; setStatus('Done. Save it, listen back, or open it in 3D.'); showLevel(0); setRing(1); $('countdown').classList.remove('show'); $('hud').classList.add('idle');
   await afterCollage();
 }
+let captionInfo = null, artistName = '';
 async function drawCaption() {
   try { await document.fonts.load('22px "IBM Plex Mono"'); } catch (e) {}
-  const secs = Math.round(totalVoiced / 1000), d = new Date(), L = langNames();
-  const spoken = `${L.length ? 'Spoken in ' + L.join(', ') + ',' : 'Spoken'} ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-  if (P.shape === 'polaroid') { captionText = `no. ${pad3(collageNo)} — ${L.length ? L.join(' & ').toLowerCase() : 'a voice'}, ${d.getMonth() + 1}/${d.getDate()}`; return; }
-  const text = `No. ${pad3(collageNo)}.  ${spoken}.  San Francisco. ${d.getFullYear()}.`;
-  const b = bounds(), dark = isDark(P.bg);
-  sctx.save(); sctx.font = '22px "IBM Plex Mono", ui-monospace, monospace';
-  const tw = sctx.measureText(text).width, lw = Math.min(tw + 44, W - 40), lh = 56;
-  let lx = W - lw - 56, ly = H - lh - 52;
-  if (P.shape === 'circle' || P.shape === 'blob') { lx = (W - lw) / 2; ly = H * .8; }
+  const secs = Math.round(totalVoiced / 1000), L = langNames();
+  captionInfo = { no: collageNo, secs, langs: L, date: new Date(), after: remixFrom ? { no: remixFrom.no, name: remixFrom.name } : null };
+  redrawCaption();
+}
+function redrawCaption() {
+  const ci = captionInfo; if (!ci) return;
+  const g = layers.caption.getContext('2d'); g.clearRect(0, 0, W, H);
+  const by = artistName ? ` — ${artistName}` : '', after = ci.after ? `, after No. ${pad3(ci.after.no)}${ci.after.name ? ' by ' + ci.after.name : ''}` : '';
+  const spoken = `${ci.langs.length ? 'Spoken in ' + ci.langs.join(', ') + ',' : 'Spoken'} ${Math.floor(ci.secs / 60)}:${String(ci.secs % 60).padStart(2, '0')}`;
+  if (P.shape === 'polaroid') {
+    captionText = `no. ${pad3(ci.no)}${artistName ? ' · ' + artistName.toLowerCase() : ''}${ci.after ? ' · after no. ' + pad3(ci.after.no) : ''} — ${ci.langs.length ? ci.langs.join(' & ').toLowerCase() : 'a voice'}, ${ci.date.getMonth() + 1}/${ci.date.getDate()}`;
+    return;
+  }
+  const line1 = `No. ${pad3(ci.no)}${by}${after}`, line2 = `${spoken}.  San Francisco. ${ci.date.getFullYear()}.`;
+  const dark = isDark(P.bg);
+  g.save(); g.font = '22px "IBM Plex Mono", ui-monospace, monospace';
+  const tw = Math.max(g.measureText(line1).width, g.measureText(line2).width), lw = Math.min(tw + 44, W - 40), lh = 86;
+  let lx = W - lw - 56, ly = H - lh - 44;
+  if (P.shape === 'circle' || P.shape === 'blob') { lx = (W - lw) / 2; ly = H * .78; }
   if (P.shape === 'filmstrip') { lx = (W - lw) / 2; ly = H - lh - 60; }
-  sctx.translate(lx + lw / 2, ly + lh / 2); sctx.rotate(-.012);
-  sctx.shadowColor = 'rgba(40,30,15,.25)'; sctx.shadowBlur = 6; sctx.shadowOffsetY = 2;
-  sctx.fillStyle = dark ? '#f4f1ea' : '#fbf9f3'; sctx.fillRect(-lw / 2, -lh / 2, lw, lh); sctx.shadowColor = 'transparent';
-  sctx.fillStyle = '#141414'; sctx.textBaseline = 'middle'; sctx.fillText(text, -lw / 2 + 22, 1, lw - 44);
-  sctx.restore();
+  g.translate(lx + lw / 2, ly + lh / 2); g.rotate(-.012);
+  g.shadowColor = 'rgba(40,30,15,.25)'; g.shadowBlur = 6; g.shadowOffsetY = 2;
+  g.fillStyle = dark ? '#f4f1ea' : '#fbf9f3'; g.fillRect(-lw / 2, -lh / 2, lw, lh); g.shadowColor = 'transparent';
+  g.fillStyle = '#141414'; g.textBaseline = 'middle';
+  g.fillText(line1, -lw / 2 + 22, -16, lw - 44); g.fillStyle = '#4a4740'; g.fillText(line2, -lw / 2 + 22, 18, lw - 44);
+  g.restore();
 }
