@@ -236,6 +236,7 @@ async function startFile(file) {
   try { await mediaEl.play(); } catch (e) { $('msg').textContent = 'Couldn’t play that file. Try another recording.'; return; }
   sessionMs = Math.min(isFinite(mediaEl.duration) ? mediaEl.duration * 1000 : 20000, 30000);
   mediaEl.onended = () => finish();
+  $('voiceHint').textContent = '· the recording is playing';
   begin(false);
 }
 function begin(calibrate) {
@@ -245,7 +246,7 @@ function begin(calibrate) {
   $('intro').classList.add('hidden'); $('after').classList.remove('show'); $('controls').classList.add('hidden');
   floor = .008; gate = .02;
   if (calibrate) {
-    state = 'calibrating'; setStatus('quiet… listening to the room'); const samples = [], t0 = performance.now();
+    state = 'calibrating'; $('hud').classList.remove('idle'); setStatus('Stay quiet for a second — measuring the room…'); const samples = [], t0 = performance.now();
     const cal = () => {
       analyser.getFloatTimeDomainData(buf); samples.push(rmsOf(buf)); showLevel(samples[samples.length - 1]);
       if (performance.now() - t0 < 1200) return requestAnimationFrame(cal);
@@ -256,11 +257,19 @@ function begin(calibrate) {
 }
 function go() {
   state = 'listening'; tStart = performance.now(); lastT = tStart; runStart = 0; voicedMs = 0; lastSpawn = 0; quietSince = tStart;
-  startRecording(); setStatus('speak'); loop();
+  $('hud').classList.remove('idle'); startRecording(); setStatus(`Speak now — you have ${Math.round(sessionMs / 1000)} seconds.`); loop();
 }
 function setStatus(s) { $('status').textContent = s; }
-function setRing(f) { $('ringFg').setAttribute('stroke-dashoffset', String(106.8 * (1 - clamp(f, 0, 1)))); }
-function showLevel(r) { $('lvl').style.width = (clamp(r / .25, 0, 1) * 100) + '%'; $('gateMark').style.left = (clamp(gate / .25, 0, 1) * 100) + '%'; }
+const fmtSec = s => `${Math.floor(s / 60)}:${String(Math.max(0, Math.ceil(s) % 60)).padStart(2, '0')}`;
+function setRing(f) { // time left: number, bar and the badge on the canvas
+  const left = Math.max(0, sessionMs / 1000 * (1 - clamp(f, 0, 1))), secs = Math.ceil(left);
+  $('timeLeft').textContent = `0:${String(secs).padStart(2, '0')}`;
+  $('timeFill').style.width = (100 * (1 - clamp(f, 0, 1))) + '%';
+  const cd = $('countdown'); cd.textContent = secs + 's';
+  cd.classList.toggle('show', state === 'listening'); cd.classList.toggle('low', state === 'listening' && secs <= 3);
+}
+function showIdleTime() { sessionMs = (parseInt(P.sessionSec, 10) || 15) * 1000; setRing(0); $('countdown').classList.remove('show'); }
+function showLevel(r) { const l = $('lvl'); l.style.width = (clamp(r / .25, 0, 1) * 100) + '%'; l.className = r > gate ? 'over' : 'under'; $('gateMark').style.left = (clamp(gate / .25, 0, 1) * 100) + '%'; }
 function loop() {
   if (state !== 'listening') return;
   const now = performance.now(), dt = now - lastT; lastT = now;
@@ -276,11 +285,11 @@ function loop() {
     if (!runStart) { runStart = now; onsets.push(now); F.pause = clamp((now - quietSince) / 1500, 0, 1); }
     voicedMs = now - runStart; totalVoiced += dt;
     updateFeatures(r, true, now);
-    spawnFrom(r, voicedMs, now); setStatus('tearing…');
+    spawnFrom(r, voicedMs, now); setStatus('Tearing paper…');
   } else {
     if (runStart && voicedMs > 650) placeStrip(voicedMs);
     if (runStart) quietSince = now;
-    runStart = 0; voicedMs = 0; updateFeatures(r, false, now); setStatus('listening');
+    runStart = 0; voicedMs = 0; updateFeatures(r, false, now); setStatus(now - tStart < 2500 ? `Speak now — you have ${Math.round(sessionMs / 1000)} seconds.` : 'Listening… keep talking, or stay quiet to finish.');
   }
   const f = (now - tStart) / sessionMs; setRing(f);
   if (f >= 1) return finish();
@@ -288,7 +297,7 @@ function loop() {
 }
 async function finish() {
   if (state !== 'listening') return;
-  state = 'settling'; setStatus('gluing…'); setRing(1);
+  state = 'settling'; setStatus('Time’s up — gluing everything down…'); setRing(1); $('countdown').classList.remove('show');
   if (mediaEl) mediaEl.pause();
   await dgStop();
   try { srcNode && srcNode.disconnect(); analyser && analyser.disconnect(); } catch (e) {}
@@ -301,7 +310,7 @@ async function finish() {
   await drawCaption();
   await new Promise(r => setTimeout(r, 1300)); // hold the final frame in the video
   await stopVideoRecording();
-  state = 'done'; setStatus('done'); showLevel(0); setRing(1);
+  state = 'done'; setStatus('Done. Save it, listen back, or open it in 3D.'); showLevel(0); setRing(1); $('countdown').classList.remove('show'); $('hud').classList.add('idle');
   await afterCollage();
 }
 async function drawCaption() {

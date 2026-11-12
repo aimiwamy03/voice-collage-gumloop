@@ -27,11 +27,21 @@
   button.on { background:#c0262d; border-color:#c0262d; color:#fff; }
   .row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
   .hud { width:100%; max-width:560px; display:flex; align-items:center; gap:14px; margin-top:14px; min-height:44px; font-size:12px; color:var(--dim); }
-  .ring { width:40px; height:40px; flex:none; }
-  .meter { flex:1; height:6px; background:rgba(0,0,0,.08); position:relative; overflow:hidden; }
+  .panel2 { width:100%; max-width:560px; margin-top:16px; display:flex; flex-direction:column; gap:10px; }
+  .statusline { font-family:'Instrument Serif', serif; font-size:24px; line-height:1.15; min-height:28px; }
+  .hudrow { display:grid; grid-template-columns:120px 1fr; gap:18px; align-items:start; }
+  .timeval { font-size:30px; font-weight:500; letter-spacing:.02em; line-height:1.1; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .timebar { height:3px; background:rgba(0,0,0,.1); margin-top:6px; position:relative; }
+  .timebar i { position:absolute; left:0; top:0; bottom:0; width:100%; background:var(--ink); }
+  .voicebox .lbl span { text-transform:none; letter-spacing:0; }
+  .meter { height:14px; background:rgba(0,0,0,.08); position:relative; overflow:hidden; margin-top:8px; }
   .meter i { position:absolute; left:0; top:0; bottom:0; width:0; background:var(--ink); transition:width .05s linear; }
-  .meter b { position:absolute; top:-3px; bottom:-3px; width:1px; background:#b3261e; left:0; }
-  .status { min-width:110px; text-align:right; }
+  .meter i.over { background:#141414; } .meter i.under { background:rgba(20,20,20,.35); }
+  .meter b { position:absolute; top:0; bottom:0; width:2px; background:#c0262d; left:0; }
+  .meterends { display:flex; justify-content:space-between; font-size:10px; color:var(--dim); margin-top:3px; }
+  .panel2.idle .hudrow { opacity:.45; }
+  .countdown { position:absolute; top:12px; right:12px; z-index:2; font-size:22px; font-weight:500; padding:6px 12px; background:rgba(20,20,20,.82); color:#f4f1ea; font-variant-numeric:tabular-nums; display:none; letter-spacing:.04em; }
+  .countdown.show { display:block; } .countdown.low { background:#c0262d; }
   .features { width:100%; max-width:560px; display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin-top:8px; }
   .feat { position:relative; height:34px; background:rgba(0,0,0,.05); display:flex; align-items:flex-end; }
   .feat i { display:block; width:100%; background:var(--ink); height:0; transition:height .08s linear; }
@@ -110,6 +120,7 @@
 
 <div class="stage" id="stage">
   <canvas id="cv" width="1200" height="1500"></canvas>
+  <div class="countdown" id="countdown"></div>
   <div class="view3d" id="view3d">
     <div id="view3dCanvas"></div>
     <div class="bar"><button class="ghost" id="flatBtn">Back to flat</button><button class="ghost" id="turntableBtn">Save 8 s turntable</button><span id="view3dNote"></span></div>
@@ -133,10 +144,20 @@
   </div>
 </div>
 
-<div class="hud" id="hud">
-  <svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="none" stroke="rgba(0,0,0,.1)" stroke-width="3"/><circle id="ringFg" cx="20" cy="20" r="17" fill="none" stroke="#141414" stroke-width="3" stroke-dasharray="106.8" stroke-dashoffset="106.8" transform="rotate(-90 20 20)"/></svg>
-  <div class="meter"><i id="lvl"></i><b id="gateMark"></b></div>
-  <div class="status" id="status">ready</div>
+<div class="panel2 idle" id="hud">
+  <div class="statusline" id="status">Tap “Use microphone” to start.</div>
+  <div class="hudrow">
+    <div class="timebox">
+      <div class="lbl">Time left</div>
+      <div class="timeval" id="timeLeft">0:15</div>
+      <div class="timebar"><i id="timeFill"></i></div>
+    </div>
+    <div class="voicebox">
+      <div class="lbl">Your voice <span id="voiceHint">· speak past the red line to tear paper</span></div>
+      <div class="meter"><i id="lvl"></i><b id="gateMark"></b></div>
+      <div class="meterends"><span>quiet (room noise)</span><span>loud</span></div>
+    </div>
+  </div>
 </div>
 <div class="features" id="features"></div>
 <div class="hud" style="margin-top:6px;min-height:0">
@@ -197,10 +218,10 @@
 
 <footer>v4 · volume, pitch, brightness, speed, breath &amp; pauses → paper · words → cut-out letters · language → city · silence → glue.<br>Material: Aimi's photographs, paintings and posters · rienespecial.com</footer>
 
-<script src="js/sources.js?v=e2d0cfd5"></script>
-<script src="js/params.js?v=e2d0cfd5"></script>
-<script src="js/engine.js?v=e2d0cfd5"></script>
-<script src="js/audio.js?v=e2d0cfd5"></script>
-<script src="js/ui.js?v=e2d0cfd5"></script>
+<script src="js/sources.js?v=6c02c93d"></script>
+<script src="js/params.js?v=6c02c93d"></script>
+<script src="js/engine.js?v=6c02c93d"></script>
+<script src="js/audio.js?v=6c02c93d"></script>
+<script src="js/ui.js?v=6c02c93d"></script>
 </body>
 </html>

@@ -19,6 +19,7 @@ function onParam(k) {
   if (k === 'shape') { if (state === 'idle' || state === 'done') { applyShape(); if (state === 'done') clearPieces(); } }
   else if (PAPER_KEYS.includes(k)) paintPaper();
   if (state === 'done') render();
+  if (k === 'sessionSec' && state === 'idle') showIdleTime();
   markPreset(null);
 }
 function control(item, compact) {
@@ -197,12 +198,12 @@ async function shareOrDownload(blob, name) {
 }
 $('saveBtn').onclick = () => { (finalCanvas || exportCanvas()).toBlob(b => shareOrDownload(b, `collage-${pad3(collageNo)}.png`), 'image/png'); };
 $('videoBtn').onclick = () => { if (videoBlob) shareOrDownload(videoBlob, `collage-${pad3(collageNo)}.${videoBlob.type.includes('mp4') ? 'mp4' : 'webm'}`); };
-$('listenBtn').onclick = () => { listenMode = !listenMode; $('listenBtn').classList.toggle('on', listenMode); $('stage').classList.toggle('listening', listenMode); setStatus(listenMode ? 'tap any piece to hear it' : 'done'); };
+$('listenBtn').onclick = () => { listenMode = !listenMode; $('listenBtn').classList.toggle('on', listenMode); $('stage').classList.toggle('listening', listenMode); setStatus(listenMode ? 'Tap any piece to hear the moment that tore it.' : 'Done. Save it, listen back, or open it in 3D.'); };
 $('sculptBtn').onclick = () => open3D();
 $('againBtn').onclick = () => {
   collageNo++; $('noLabel').textContent = 'No. ' + pad3(collageNo); close3D(); listenMode = false; $('listenBtn').classList.remove('on'); $('stage').classList.remove('listening');
   if (resetAfter) { P = JSON.parse(JSON.stringify(savedDefaults)); markPreset(null); }
-  applyShape(); clearPieces(); syncAll(); setRing(0); setStatus('ready'); showLevel(0); refreshKeyUI();
+  applyShape(); clearPieces(); syncAll(); state = 'idle'; showIdleTime(); setStatus('Tap “Use microphone” to start.'); showLevel(0); refreshKeyUI(); $('hud').classList.add('idle'); $('voiceHint').textContent = '· speak past the red line to tear paper';
   state = 'idle'; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
 };
 cv.addEventListener('click', ev => {
@@ -212,7 +213,7 @@ cv.addEventListener('click', ev => {
     const s = history[i], dx = px - s.x, dy = py - s.y, c = Math.cos(-s.rot), sn = Math.sin(-s.rot), lx = dx * c - dy * sn, ly = dx * sn + dy * c;
     if (Math.abs(lx) < s.w / 2 && Math.abs(ly) < s.h / 2) {
       highlight = { rec: s, until: performance.now() + 1600 }; playSlice(s.t);
-      setStatus(`▶ ${Math.floor(s.t / 60)}:${String(Math.floor(s.t % 60)).padStart(2, '0')}`); return;
+      setStatus(`▶ Playing the moment at ${Math.floor(s.t / 60)}:${String(Math.floor(s.t % 60)).padStart(2, '0')}`); return;
     }
   }
 });
@@ -295,7 +296,7 @@ $('turntableBtn').onclick = async () => {
 };
 
 // ---------- boot ----------
-applyShape(); syncAll(); refreshKeyUI();
+applyShape(); syncAll(); refreshKeyUI(); showIdleTime();
 (function frame() {
   if (highlight && performance.now() > highlight.until) { highlight = null; render(); }
   if (state !== 'done' || anims.length || highlight) render();
