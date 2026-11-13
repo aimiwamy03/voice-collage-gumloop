@@ -66,7 +66,7 @@ const DEFAULTS = {
   // effects
   grain: .25, leaks: 0, aberration: 0, streaks: 0, copyChain: false,
   // voice
-  sensitivity: .5, pitchHeight: true, sessionSec: 30, askQuestion: true, wordsWhen: 'after',
+  sensitivity: .5, pitchHeight: true, sessionSec: 30, askQuestion: true, wordsWhen: 'flowing',
   patch: { 'volume>size': 0, 'brightness>hue': 0, 'speed>scatter': .5, 'breath>blur': .5, 'pause>drift': 0 },
   // 3d + output
   depth3d: .6, autoSculpture: false, recordVideo: true,
@@ -178,7 +178,7 @@ const SCHEMA = [
     B('pitchHeight', 'Pitch → height'),
     S('sessionSec', 'Session length', ['10', '15', '30', '60', 'open']),
     B('askQuestion', 'Open with a question'),
-    S('wordsWhen', 'Words land on the page', ['after', 'live']),
+    S('wordsWhen', 'Words land on the page', ['flowing', 'after', 'scattered']),
   ]},
   { sec: '3D & output', items: [
     R('depth3d', 'Sculpture depth', 'flat', 'deep'),
