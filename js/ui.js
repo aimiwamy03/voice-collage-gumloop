@@ -17,6 +17,8 @@ const bound = {}; // key -> [refresh fns]
 const PAPER_KEYS = ['bg', 'texture', 'vignette', 'frame'];
 function onParam(k) {
   if (k === 'mode') { syncMode(); }
+  if (k === 'shape') { P.varyShape = false; sync('varyShape'); }
+  if (k === 'varyShape' && P.varyShape && (state === 'idle')) { varyShape(); applyShape(); sync('shape'); }
   if (k === 'shape') { if (state === 'idle' || state === 'done') { applyShape(); if (state === 'done') clearPieces(); } }
   else if (PAPER_KEYS.includes(k)) paintPaper();
   if (state === 'done') render();
@@ -54,15 +56,23 @@ function syncAll() { for (const k in bound) sync(k); syncSeries(); syncLang(); s
 // ---------- presets ----------
 let activePreset = null;
 function markPreset(name) { activePreset = name; document.querySelectorAll('.chip[data-p]').forEach(c => c.classList.toggle('on', c.dataset.p === name)); }
+// a different canvas shape for every piece, never the same twice in a row
+let lastShape = null;
+function varyShape() {
+  if (!P.varyShape) return;
+  const opts = Object.keys(SHAPES).filter(s => s !== lastShape && s !== P.shape);
+  P.shape = opts[Math.floor(rnd(opts.length))]; lastShape = P.shape;
+}
 function applyPreset(name) {
-  const pr = PRESETS[name]; const shapeChanged = pr.shape && pr.shape !== P.shape;
+  const pr = { ...PRESETS[name] }; if (P.varyShape) delete pr.shape; // presets set the look; the shape keeps varying
+  const shapeChanged = pr.shape && pr.shape !== P.shape;
   P = { ...P, ...JSON.parse(JSON.stringify(pr)) };
   if (shapeChanged) applyShape(); else paintPaper();
   syncAll(); syncMode(); markPreset(name);
 }
 function surprise() {
   for (const it of ALL_ITEMS) {
-    if (['recordVideo', 'pitchHeight', 'langArchive', 'sessionSec', 'sensitivity', 'copyChain', 'mode', 'autoSculpture'].includes(it.k)) continue;
+    if (['recordVideo', 'pitchHeight', 'langArchive', 'sessionSec', 'sensitivity', 'copyChain', 'mode', 'autoSculpture', 'varyShape', 'captionOnImage', 'askQuestion', 'wordsWhen'].includes(it.k)) continue;
     if (it.type === 'range') P[it.k] = Math.random() < .25 ? 0 : Math.round(rnd() * 100) / 100;
     else if (it.type === 'select') P[it.k] = it.options[Math.floor(rnd(it.options.length))];
     else if (it.type === 'color') P[it.k] = '#' + Math.floor(rnd(0xffffff)).toString(16).padStart(6, '0');
@@ -254,6 +264,7 @@ function resetToIdle(resetParams) {
   if (state === 'done' || state === 'idle') { if (state === 'done') { collageNo++; } }
   $('noLabel').textContent = 'No. ' + pad3(collageNo); close3D(); listenMode = false; $('listenBtn').classList.remove('on'); $('stage').classList.remove('listening');
   if (resetParams && resetAfter) { const m = P.mode; P = JSON.parse(JSON.stringify(savedDefaults)); if (m !== P.mode) { P.mode = m; if (m === 'paint') P = { ...P, ...JSON.parse(JSON.stringify(PAINT_PRESETS['Oil sketch'])) }; } markPreset(null); }
+  if (resetParams) varyShape();
   applyShape(); clearPieces(); syncAll(); syncMode(); state = 'idle'; showIdleTime(); showLevel(0); refreshKeyUI(); $('hud').classList.add('idle');
   captionInfo = null; currentWorkId = null; $('pieceLabel').style.display = 'none'; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
 }
@@ -556,7 +567,7 @@ function close3D(keepOpen) { if (r3) { r3.stop(); r3 = null; } if (!keepOpen) { 
 $('flatBtn').onclick = () => close3D();
 
 // ---------- boot ----------
-applyShape(); syncAll(); refreshKeyUI(); showIdleTime(); syncMode(); showStep(1);
+varyShape(); applyShape(); syncAll(); refreshKeyUI(); showIdleTime(); syncMode(); showStep(1);
 (function frame() {
   if (highlight && performance.now() > highlight.until) { highlight = null; render(); }
   if (state !== 'done' || anims.length || highlight) render();

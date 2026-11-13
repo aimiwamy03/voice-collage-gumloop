@@ -69,7 +69,7 @@ const DEFAULTS = {
   sensitivity: .5, pitchHeight: true, sessionSec: 30, askQuestion: true, wordsWhen: 'flowing',
   patch: { 'volume>size': 0, 'brightness>hue': 0, 'speed>scatter': .5, 'breath>blur': .5, 'pause>drift': 0 },
   // 3d + output
-  depth3d: .6, autoSculpture: false, recordVideo: true, captionOnImage: false,
+  depth3d: .6, autoSculpture: false, recordVideo: true, captionOnImage: false, varyShape: true,
 };
 
 const PRESETS = {
@@ -122,6 +122,7 @@ const SCHEMA = [
     R('drips', 'Drips', 'none', 'running'),
   ]},
   { sec: 'Canvas', items: [
+    B('varyShape', 'A different canvas shape every time'),
     S('shape', 'Shape', ['portrait', 'square', 'landscape', 'scroll', 'postcard', 'circle', 'arch', 'blob', 'filmstrip', 'polaroid']),
     Cc('bg', 'Background'),
     S('texture', 'Paper', ['grain', 'smooth', 'linen', 'cardboard', 'graph', 'lined', 'tracing']),
