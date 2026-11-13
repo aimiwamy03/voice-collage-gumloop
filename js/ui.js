@@ -554,16 +554,6 @@ async function open3D() {
 }
 function close3D(keepOpen) { if (r3) { r3.stop(); r3 = null; } if (!keepOpen) { $('view3d').classList.remove('show'); document.body.classList.remove('in3d'); } }
 $('flatBtn').onclick = () => close3D();
-$('turntableBtn').onclick = async () => {
-  if (!r3 || typeof MediaRecorder === 'undefined') return;
-  const c = r3.renderer.domElement, vm = pickMime(['video/webm;codecs=vp9', 'video/webm', 'video/mp4']);
-  const rec = new MediaRecorder(c.captureStream(30), vm ? { mimeType: vm, videoBitsPerSecond: 8e6 } : undefined), ch = [];
-  rec.ondataavailable = e => e.data.size && ch.push(e.data);
-  $('view3dNote').textContent = 'recording 8 seconds…'; r3.setAuto(true); rec.start(250);
-  await new Promise(r => setTimeout(r, 8000)); await stopRec(rec); r3 && r3.setAuto(false);
-  shareOrDownload(new Blob(ch, { type: rec.mimeType || 'video/webm' }), `sculpture-${pad3(collageNo)}.${(rec.mimeType || '').includes('mp4') ? 'mp4' : 'webm'}`);
-  $('view3dNote').textContent = 'saved · drag to turn it · scroll to come closer';
-};
 
 // ---------- boot ----------
 applyShape(); syncAll(); refreshKeyUI(); showIdleTime(); syncMode(); showStep(1);
