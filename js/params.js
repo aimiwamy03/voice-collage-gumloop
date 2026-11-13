@@ -66,7 +66,7 @@ const DEFAULTS = {
   // effects
   grain: .25, leaks: 0, aberration: 0, streaks: 0, copyChain: false,
   // voice
-  sensitivity: .5, pitchHeight: true, sessionSec: 15, askQuestion: true,
+  sensitivity: .5, pitchHeight: true, sessionSec: 30, askQuestion: true, wordsWhen: 'after',
   patch: { 'volume>size': 0, 'brightness>hue': 0, 'speed>scatter': .5, 'breath>blur': .5, 'pause>drift': 0 },
   // 3d + output
   depth3d: .6, autoSculpture: false, recordVideo: true,
@@ -87,11 +87,11 @@ const PRESETS = {
   'Photocopy': { treatment: 'photocopy', copyChain: true, streaks: .5, grain: .55, textMode: 'tiles', typeface: 'display', letterMix: .4, bg: '#ecebe6', texture: 'smooth', shape: 'portrait', autoSculpture: false },
 };
 const PAINT_PRESETS = {
-  'Oil sketch': { mode: 'paint', sessionSec: 'open', bg: '#e6d8bd', texture: 'linen', brushSize: .62, impasto: .75, scratchBias: .35, letterStyle: 'auto', drips: .25, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .2, leaks: 0 },
-  'Sgraffito': { mode: 'paint', sessionSec: 'open', bg: '#efe6d4', texture: 'linen', brushSize: .85, impasto: .8, scratchBias: 1, letterStyle: 'scratched', drips: .1, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .15, leaks: 0 },
-  'Night oil': { mode: 'paint', sessionSec: 'open', bg: '#151412', texture: 'linen', brushSize: .6, impasto: .75, scratchBias: .5, letterStyle: 'painted', drips: .45, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .2, leaks: .25 },
-  'Story painting': { mode: 'paint', sessionSec: 'open', bg: '#f1ead9', texture: 'linen', brushSize: .5, impasto: .65, scratchBias: .3, letterStyle: 'painted', drips: .2, typeface: 'hand', wordSize: .8, wordsVsImages: .8, shape: 'landscape', storyColor: true, autoSculpture: false, grain: .15, leaks: 0 },
-  'Paint in 3D': { mode: 'paint', sessionSec: 'open', bg: '#e6d8bd', texture: 'linen', brushSize: .7, impasto: .9, scratchBias: .6, letterStyle: 'auto', drips: .3, shape: 'square', storyColor: true, autoSculpture: true, depth3d: .9 },
+  'Oil sketch': { mode: 'paint', sessionSec: 30, bg: '#e6d8bd', texture: 'linen', brushSize: .62, impasto: .75, scratchBias: .35, letterStyle: 'auto', drips: .25, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .2, leaks: 0 },
+  'Sgraffito': { mode: 'paint', sessionSec: 30, bg: '#efe6d4', texture: 'linen', brushSize: .85, impasto: .8, scratchBias: 1, letterStyle: 'scratched', drips: .1, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .15, leaks: 0 },
+  'Night oil': { mode: 'paint', sessionSec: 30, bg: '#151412', texture: 'linen', brushSize: .6, impasto: .75, scratchBias: .5, letterStyle: 'painted', drips: .45, typeface: 'mixed', shape: 'portrait', storyColor: true, autoSculpture: false, grain: .2, leaks: .25 },
+  'Story painting': { mode: 'paint', sessionSec: 30, bg: '#f1ead9', texture: 'linen', brushSize: .5, impasto: .65, scratchBias: .3, letterStyle: 'painted', drips: .2, typeface: 'hand', wordSize: .8, wordsVsImages: .8, shape: 'landscape', storyColor: true, autoSculpture: false, grain: .15, leaks: 0 },
+  'Paint in 3D': { mode: 'paint', sessionSec: 30, bg: '#e6d8bd', texture: 'linen', brushSize: .7, impasto: .9, scratchBias: .6, letterStyle: 'auto', drips: .3, shape: 'square', storyColor: true, autoSculpture: true, depth3d: .9 },
 };
 for (const k in PRESETS) PRESETS[k].mode = 'collage';
 Object.assign(PRESETS, PAINT_PRESETS);
@@ -178,6 +178,7 @@ const SCHEMA = [
     B('pitchHeight', 'Pitch → height'),
     S('sessionSec', 'Session length', ['10', '15', '30', '60', 'open']),
     B('askQuestion', 'Open with a question'),
+    S('wordsWhen', 'Words land on the page', ['after', 'live']),
   ]},
   { sec: '3D & output', items: [
     R('depth3d', 'Sculpture depth', 'flat', 'deep'),

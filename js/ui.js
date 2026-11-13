@@ -257,6 +257,55 @@ function resetToIdle(resetParams) {
   captionInfo = null; currentWorkId = null; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
 }
 $('againBtn').onclick = () => { resetToIdle(true); remixFrom = null; showRemixChip(); setArtistName('', false); $('nameIn').value = ''; nextQuestion(); showStep(1); };
+// ---------- drag anything once the piece is done ----------
+const canvasPt = ev => { const r = cv.getBoundingClientRect(); return [(ev.clientX - r.left) * W / r.width, (ev.clientY - r.top) * H / r.height]; };
+function pieceAt(px, py) {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const s = history[i]; if (!s.canvas) continue;
+    const dx = px - s.x, dy = py - s.y, c = Math.cos(-s.rot), sn = Math.sin(-s.rot), lx = dx * c - dy * sn, ly = dx * sn + dy * c;
+    if (Math.abs(lx) < s.w / 2 && Math.abs(ly) < s.h / 2) return s;
+  }
+  return null;
+}
+let drag = null, smear = null, arrangeTimer = null;
+function arranged() { // keep the saved image in step with the new arrangement
+  clearTimeout(arrangeTimer);
+  arrangeTimer = setTimeout(async () => { finalCanvas = exportCanvas(); if (currentWorkId) { try { await updateWork(currentWorkId, { img: await toBlob(finalCanvas), thumb: thumbOf(finalCanvas) }); } catch (e) {} } }, 600);
+}
+cv.addEventListener('pointerdown', ev => {
+  if (state !== 'done' || listenMode) return;
+  const [px, py] = canvasPt(ev);
+  if (P.mode === 'collage') {
+    const s = pieceAt(px, py); if (!s) return;
+    history.splice(history.indexOf(s), 1); history.push(s); // bring to the front
+    dragPiece = s; drag = { s, ox: px - s.x, oy: py - s.y }; rebuildFromHistory(); render();
+  } else { smear = { x: px, y: py }; } // paint: drag smears the wet paint
+  cv.setPointerCapture && cv.setPointerCapture(ev.pointerId); ev.preventDefault();
+});
+cv.addEventListener('pointermove', ev => {
+  if (state === 'done' && !listenMode && !drag && !smear) { const [px, py] = canvasPt(ev); cv.style.cursor = P.mode === 'paint' ? 'crosshair' : pieceAt(px, py) ? 'grab' : 'default'; }
+  if (drag) { const [px, py] = canvasPt(ev); drag.s.x = px - drag.ox; drag.s.y = py - drag.oy; cv.style.cursor = 'grabbing'; render(); }
+  if (smear) {
+    const [px, py] = canvasPt(ev), r = lerp(26, 70, P.brushSize), d = Math.hypot(px - smear.x, py - smear.y), n = Math.max(1, Math.ceil(d / 6));
+    for (let k = 1; k <= n; k++) {
+      const x0 = lerp(smear.x, px, (k - 1) / n), y0 = lerp(smear.y, py, (k - 1) / n), x1 = lerp(smear.x, px, k / n), y1 = lerp(smear.y, py, k / n);
+      sctx.save(); sctx.globalAlpha = .55; sctx.beginPath(); sctx.arc(x1, y1, r, 0, Math.PI * 2); sctx.clip();
+      sctx.drawImage(layers.settled, x0 - r, y0 - r, r * 2, r * 2, x1 - r, y1 - r, r * 2, r * 2); sctx.restore();
+    }
+    smear = { x: px, y: py }; render();
+  }
+});
+const endDrag = () => {
+  if (drag) { dragPiece = null; drag = null; rebuildFromHistory(); render(); arranged(); cv.style.cursor = 'grab'; }
+  if (smear) { smear = null; arranged(); }
+};
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('wheel', ev => { // scroll over a piece to turn it
+  if (state !== 'done' || listenMode || P.mode !== 'collage') return;
+  const [px, py] = canvasPt(ev), s = pieceAt(px, py); if (!s) return;
+  ev.preventDefault(); s.rot += ev.deltaY * .0025; rebuildFromHistory(); render(); arranged();
+}, { passive: false });
+
 cv.addEventListener('click', ev => {
   if (state !== 'done' || !listenMode) return;
   const r = cv.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width, py = (ev.clientY - r.top) * H / r.height;
@@ -395,7 +444,7 @@ async function startRemix(w) {
   resetToIdle(false); showStep(1);
   P = { ...JSON.parse(JSON.stringify(DEFAULTS)), ...JSON.parse(JSON.stringify(w.params || {})), autoSculpture: false };
   applyShape(); syncAll(); syncMode(); markPreset(null);
-  sctx.drawImage(img, 0, 0, W, H); render();
+  drawRemixBase(); render();
   showRemixChip();
 }
 function showRemixChip() {
@@ -405,60 +454,114 @@ function showRemixChip() {
 }
 $('remixCancel').onclick = () => { remixFrom = null; showRemixChip(); clearPieces(); render(); };
 
-// ---------- 3D sculpture ----------
+// ---------- 3D sculpture: full-screen, lit, with real depth and shadows ----------
 let three = null, r3 = null;
 async function open3D() {
-  if (!history.length) return;
-  $('view3d').classList.add('show'); $('view3dNote').textContent = 'building the sculpture…';
+  if (!history.length && P.mode !== 'paint') return;
+  $('view3d').classList.add('show'); document.body.classList.add('in3d'); $('view3dNote').textContent = 'building the sculpture…';
   try { three = three || await import(new URL('js/vendor/three.module.min.js', location.href).href); }
   catch (e) { try { three = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js'); } catch (e2) { $('view3dNote').textContent = 'Couldn’t load 3D.'; return; } }
   const T = three; close3D(true);
-  const host = $('view3dCanvas'), rect = $('stage').getBoundingClientRect();
-  const renderer = new T.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.setSize(rect.width, rect.height); renderer.outputColorSpace = T.SRGBColorSpace;
+  const host = $('view3dCanvas'), vw = window.innerWidth, vh = window.innerHeight;
+  const renderer = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); renderer.setSize(vw, vh); renderer.outputColorSpace = T.SRGBColorSpace;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap; renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
   host.innerHTML = ''; host.appendChild(renderer.domElement);
-  const scene = new T.Scene(); scene.fog = new T.Fog(new T.Color(P.bg), 2200, 6200);
-  const cam = new T.PerspectiveCamera(35, rect.width / rect.height, 1, 20000);
-  const span = lerp(80, 1100, P.depth3d), N = history.length, group = new T.Group(); scene.add(group);
-  const tex = c => { const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; return t; };
-  const paper = new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshBasicMaterial({ map: tex(layers.paper), transparent: true }));
-  paper.position.z = -span * .6 - 40; group.add(paper);
-  if (P.mode === 'paint') { const pl = new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshBasicMaterial({ map: tex(layers.settled), transparent: true, depthWrite: false })); pl.position.z = -span * .25; pl.renderOrder = 0; group.add(pl);
-    const ws = new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshBasicMaterial({ map: tex(layers.words), transparent: true, depthWrite: false })); ws.userData.z = span * .3; group.add(ws); }
-  const pieces = history.filter(s => s.canvas).map((s, i) => {
-    const m = new T.Mesh(new T.PlaneGeometry(s.canvas.width, s.canvas.height), new T.MeshBasicMaterial({ map: tex(s.canvas), transparent: true, opacity: s.alpha, side: T.DoubleSide, depthWrite: false }));
-    const z = ((i / Math.max(1, N - 1)) - .5) * span + (s.z || 0) * span * .25 + (s.word ? span * .18 : 0);
-    m.position.set(s.x - W / 2, -(s.y - H / 2), 0); m.rotation.z = -s.rot; m.userData.z = z; m.renderOrder = i + 1; group.add(m); return m;
-  });
-  const dist = (Math.max(H, W * rect.height / rect.width) / 2) / Math.tan(T.MathUtils.degToRad(17.5)) * 1.5;
-  let px = 0, py = 0;
-  const onMove = e => { const r = renderer.domElement.getBoundingClientRect(); px = ((e.clientX - r.left) / r.width - .5) * 2; py = ((e.clientY - r.top) / r.height - .5) * 2; };
-  const onTilt = e => { if (e.gamma != null) { px = clamp(e.gamma / 30, -1, 1); py = clamp((e.beta - 40) / 30, -1, 1); } };
-  renderer.domElement.addEventListener('pointermove', onMove); window.addEventListener('deviceorientation', onTilt);
-  const t0 = performance.now(); let raf;
+  const dark = isDark(P.bg), room = new T.Color(dark ? '#0d0c0b' : '#2a2724');
+  const scene = new T.Scene(); scene.background = room; scene.fog = new T.Fog(room, 3800, 9000);
+  const cam = new T.PerspectiveCamera(32, vw / vh, 1, 30000);
+  // light like a gallery wall: a warm key from the upper left, a cool fill
+  scene.add(new T.HemisphereLight(0xfff4e6, 0x30302c, .9));
+  const key = new T.DirectionalLight(0xfff1dd, 2.1); key.position.set(-1400, 1600, 2200); key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -.0004; key.shadow.normalBias = 1.5;
+  Object.assign(key.shadow.camera, { left: -W, right: W, top: H, bottom: -H, near: 100, far: 7000 }); key.shadow.camera.updateProjectionMatrix();
+  scene.add(key);
+  const fill = new T.DirectionalLight(0xc8d6ff, .45); fill.position.set(1600, -400, 1200); scene.add(fill);
+  const tex = c => { const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t; };
+  const span = lerp(120, 1400, P.depth3d), group = new T.Group(); scene.add(group);
+  const cutout = (canvas, opts = {}) => { // a paper cut-out that casts a shadow in its own shape
+    const map = tex(canvas);
+    const mat = new T.MeshStandardMaterial({ map, transparent: true, alphaTest: .45, side: T.DoubleSide, roughness: .92, metalness: 0, opacity: opts.opacity ?? 1 });
+    const m = new T.Mesh(new T.PlaneGeometry(canvas.width, canvas.height), mat);
+    m.castShadow = true; m.receiveShadow = true;
+    m.customDepthMaterial = new T.MeshDepthMaterial({ depthPacking: T.RGBADepthPacking, map, alphaTest: .45 });
+    return m;
+  };
+  const pieces = [];
+  if (P.mode === 'paint') {
+    // the painting as a relief: thick paint stands up from the canvas and catches the light
+    const cw = 300, chh = Math.round(300 * H / W), colour = mk(W, H), cg = colour.getContext('2d');
+    cg.save(); shapePath(cg); cg.clip(); cg.drawImage(layers.paper, 0, 0); cg.drawImage(layers.settled, 0, 0); cg.drawImage(layers.caption, 0, 0); cg.restore();
+    const hm = mk(cw, chh), hg = hm.getContext('2d'); if ('filter' in hg) hg.filter = 'blur(1.2px)'; hg.drawImage(layers.settled, 0, 0, cw, chh);
+    const hd = hg.getImageData(0, 0, cw, chh).data;
+    const geo = new T.PlaneGeometry(W, H, cw - 1, chh - 1), pos = geo.attributes.position, relief = lerp(8, 160, P.depth3d) * lerp(.6, 1.4, P.impasto);
+    for (let i = 0; i < pos.count; i++) {
+      const gx = i % cw, gy = Math.floor(i / cw), k = (gy * cw + gx) * 4, a = hd[k + 3] / 255, lum = (hd[k] + hd[k + 1] + hd[k + 2]) / 765;
+      pos.setZ(i, a * relief * (.75 + lum * .5));
+    }
+    geo.computeVertexNormals();
+    const cmap = tex(colour);
+    const mat = new T.MeshStandardMaterial({ map: cmap, roughness: .55, metalness: 0, transparent: true, alphaTest: .4 });
+    const slab = new T.Mesh(geo, mat); slab.castShadow = true; slab.receiveShadow = true;
+    slab.customDepthMaterial = new T.MeshDepthMaterial({ depthPacking: T.RGBADepthPacking, map: cmap, alphaTest: .4 });
+    slab.userData.z = 0; group.add(slab); pieces.push(slab);
+    // the canvas has thickness: a stretcher edge behind it
+    const back = new T.Mesh(new T.BoxGeometry(W, H, 60), new T.MeshStandardMaterial({ color: new T.Color(P.bg).multiplyScalar(.8), roughness: .9 }));
+    back.position.z = -32; back.receiveShadow = true; if (P.shape === 'portrait' || P.shape === 'square' || P.shape === 'landscape' || P.shape === 'scroll' || P.shape === 'postcard') group.add(back);
+  } else {
+    // collage: the backing board, then every scrap and word floating at its own depth
+    const board = cutout(layers.paper); board.position.z = -span * .55 - 30; board.castShadow = false; group.add(board);
+    const edge = new T.Mesh(new T.BoxGeometry(W, H, 40), new T.MeshStandardMaterial({ color: new T.Color(P.bg).multiplyScalar(.72), roughness: .95 }));
+    edge.position.z = board.position.z - 21; edge.receiveShadow = true; if (!['circle', 'blob', 'arch'].includes(P.shape)) group.add(edge);
+    const cap = cutout(layers.caption); cap.position.z = span * .5 + 20; cap.userData.z = cap.position.z; group.add(cap); pieces.push(cap);
+    const list = history.filter(s => s.canvas), N = list.length;
+    list.forEach((s, i) => {
+      const m = cutout(s.canvas, { opacity: s.alpha });
+      const z = ((i / Math.max(1, N - 1)) - .5) * span + (s.z || 0) * span * .2 + (s.word ? span * .22 : 0);
+      m.position.set(s.x - W / 2, -(s.y - H / 2), 0); m.rotation.z = -s.rot;
+      m.rotation.y = rnd(-.12, .12) * P.depth3d; m.rotation.x = rnd(-.08, .08) * P.depth3d; // a little curl, like real paper
+      m.userData.z = z; m.renderOrder = i + 1; group.add(m); pieces.push(m);
+    });
+  }
+  // orbit: drag to turn, scroll to zoom, slow drift when left alone
+  const fitDist = (Math.max(H, W * vh / vw) / 2) / Math.tan(T.MathUtils.degToRad(16)) * 1.25;
+  let yaw = -.5, pitch = .12, dist = fitDist, dragging = false, lx = 0, ly = 0, lastTouch = 0;
+  const el = renderer.domElement;
+  const down = e => { dragging = true; lx = e.clientX; ly = e.clientY; lastTouch = performance.now(); el.setPointerCapture && el.setPointerCapture(e.pointerId); };
+  const move = e => { if (!dragging) return; yaw -= (e.clientX - lx) * .006; pitch = clamp(pitch + (e.clientY - ly) * .004, -.7, .7); lx = e.clientX; ly = e.clientY; lastTouch = performance.now(); };
+  const up = () => { dragging = false; };
+  const wheel = e => { e.preventDefault(); dist = clamp(dist * (1 + e.deltaY * .001), fitDist * .35, fitDist * 2.2); lastTouch = performance.now(); };
+  const onTilt = e => { if (e.gamma != null && !dragging) { yaw = clamp(e.gamma / 35, -1.2, 1.2); pitch = clamp((e.beta - 45) / 60, -.6, .6); lastTouch = performance.now(); } };
+  const onResize = () => { renderer.setSize(window.innerWidth, window.innerHeight); cam.aspect = window.innerWidth / window.innerHeight; cam.updateProjectionMatrix(); };
+  el.addEventListener('pointerdown', down); el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  el.addEventListener('wheel', wheel, { passive: false }); window.addEventListener('deviceorientation', onTilt); window.addEventListener('resize', onResize);
+  const t0 = performance.now(); let raf, autoOrbit = false;
   const tick = () => {
-    const t = (performance.now() - t0) / 1000, ex = easeOut(clamp(t / 1.8, 0, 1));
+    const now = performance.now(), t = (now - t0) / 1000, ex = easeOut(clamp((t - .3) / 2.2, 0, 1));
     pieces.forEach(m => { m.position.z = m.userData.z * ex; });
-    const a = Math.sin(t * .35) * .55 * ex + px * .35, b = py * .2;
-    cam.position.set(Math.sin(a) * dist, Math.sin(b) * dist * .5, Math.cos(a) * dist); cam.lookAt(0, 0, 0);
+    if (autoOrbit || now - lastTouch > 3500) yaw += .0035; // gentle drift
+    const cy = Math.cos(pitch);
+    cam.position.set(Math.sin(yaw) * cy * dist, Math.sin(pitch) * dist, Math.cos(yaw) * cy * dist); cam.lookAt(0, 0, 0);
     renderer.render(scene, cam); raf = requestAnimationFrame(tick);
   };
   tick();
-  if (P.mode === 'paint') pieces.push(...group.children.filter(m => m.userData.z && !pieces.includes(m)));
-  r3 = { renderer, stop: () => { cancelAnimationFrame(raf); renderer.domElement.removeEventListener('pointermove', onMove); window.removeEventListener('deviceorientation', onTilt); renderer.dispose(); } };
-  $('view3dNote').textContent = 'move your mouse or tilt your phone';
+  r3 = { renderer, setAuto: v => { autoOrbit = v; }, stop: () => {
+    cancelAnimationFrame(raf); el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up);
+    el.removeEventListener('wheel', wheel); window.removeEventListener('deviceorientation', onTilt); window.removeEventListener('resize', onResize); renderer.dispose();
+  } };
+  $('view3dNote').textContent = 'drag to turn it · scroll to come closer · tilt your phone';
 }
-function close3D(keepOpen) { if (r3) { r3.stop(); r3 = null; } if (!keepOpen) $('view3d').classList.remove('show'); }
+function close3D(keepOpen) { if (r3) { r3.stop(); r3 = null; } if (!keepOpen) { $('view3d').classList.remove('show'); document.body.classList.remove('in3d'); } }
 $('flatBtn').onclick = () => close3D();
 $('turntableBtn').onclick = async () => {
   if (!r3 || typeof MediaRecorder === 'undefined') return;
   const c = r3.renderer.domElement, vm = pickMime(['video/webm;codecs=vp9', 'video/webm', 'video/mp4']);
   const rec = new MediaRecorder(c.captureStream(30), vm ? { mimeType: vm, videoBitsPerSecond: 8e6 } : undefined), ch = [];
   rec.ondataavailable = e => e.data.size && ch.push(e.data);
-  $('view3dNote').textContent = 'recording 8 seconds…'; rec.start(250);
-  await new Promise(r => setTimeout(r, 8000)); await stopRec(rec);
+  $('view3dNote').textContent = 'recording 8 seconds…'; r3.setAuto(true); rec.start(250);
+  await new Promise(r => setTimeout(r, 8000)); await stopRec(rec); r3 && r3.setAuto(false);
   shareOrDownload(new Blob(ch, { type: rec.mimeType || 'video/webm' }), `sculpture-${pad3(collageNo)}.${(rec.mimeType || '').includes('mp4') ? 'mp4' : 'webm'}`);
-  $('view3dNote').textContent = 'saved · move your mouse or tilt your phone';
+  $('view3dNote').textContent = 'saved · drag to turn it · scroll to come closer';
 };
 
 // ---------- boot ----------

@@ -144,12 +144,14 @@
   .wallgrid figure { margin:0; } .wallgrid img { width:100%; display:block; box-shadow:0 6px 16px rgba(0,0,0,.18); }
   .wallgrid figcaption { font-size:10px; color:var(--dim); margin-top:6px; line-height:1.4; }
   /* 3d */
-  .view3d { position:absolute; inset:0; z-index:3; display:none; background:transparent; }
+  .view3d { position:fixed; inset:0; z-index:40; display:none; background:#1c1a18; }
   .view3d.show { display:block; }
-  .view3d .bar { position:absolute; left:10px; right:10px; top:10px; display:flex; gap:8px; align-items:center; }
+  .view3d canvas { cursor:grab; touch-action:none; } .view3d canvas:active { cursor:grabbing; }
+  body.in3d { overflow:hidden; }
+  .view3d .bar { position:absolute; left:16px; right:16px; top:16px; display:flex; gap:8px; align-items:center; }
   .view3d .bar button { background:rgba(244,241,234,.9); }
   .view3d .bar button { min-width:0; padding:9px 12px; font-size:11px; }
-  .view3d .bar span { font-size:11px; color:var(--ink); flex:1; text-align:right; background:rgba(244,241,234,.8); padding:4px 6px; }
+  .view3d .bar span { font-size:11px; color:#e9e5dc; flex:1; text-align:right; letter-spacing:.04em; }
   #view3dCanvas, #view3dCanvas canvas { width:100%; height:100%; display:block; }
   .modes { display:flex; gap:0; border:1px solid var(--ink); }
   .mode { min-width:0; padding:10px 22px; background:transparent; color:var(--ink); border:none; font-size:12px; text-align:center; }
@@ -315,13 +317,12 @@
   </div>
 </div>
 
-<footer>v4 · volume, pitch, brightness, speed, breath &amp; pauses → paper · words → cut-out letters · language → city · silence → glue.<br>Material: Aimi's photographs, paintings and posters · rienespecial.com</footer>
 
-<script src="js/sources.js?v=75bd1c3c"></script>
-<script src="js/params.js?v=75bd1c3c"></script>
-<script src="js/paint.js?v=75bd1c3c"></script>
-<script src="js/engine.js?v=75bd1c3c"></script>
-<script src="js/audio.js?v=75bd1c3c"></script>
-<script src="js/ui.js?v=75bd1c3c"></script>
+<script src="js/sources.js?v=9bb1b45c"></script>
+<script src="js/params.js?v=9bb1b45c"></script>
+<script src="js/paint.js?v=9bb1b45c"></script>
+<script src="js/engine.js?v=9bb1b45c"></script>
+<script src="js/audio.js?v=9bb1b45c"></script>
+<script src="js/ui.js?v=9bb1b45c"></script>
 </body>
 </html>

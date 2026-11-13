@@ -26,7 +26,7 @@ const grainHeavy = makeGrain(256, 256, 140);
 function applyShape() {
   const [w, h] = SHAPES[P.shape] || SHAPES.portrait;
   W = w; H = h; cv.width = W; cv.height = H;
-  for (const k of ['paper', 'settled', 'words', 'ghost', 'caption']) layers[k] = mk(W, H);
+  for (const k of ['paper', 'settled', 'words', 'ghost', 'caption', 'base', 'decor']) layers[k] = mk(W, H);
   sctx = layers.settled.getContext('2d'); wctx = layers.words.getContext('2d'); gctx = layers.ghost.getContext('2d');
   $('stage').style.aspectRatio = `${W} / ${H}`;
   $('stage').style.setProperty('--ar', String(W / H));
@@ -551,11 +551,14 @@ function composite(g, live) {
   g.save(); shapePath(g); g.clip();
   g.drawImage(layers.paper, 0, 0);
   if (P.copyChain) g.drawImage(layers.ghost, 0, 0);
+  g.drawImage(layers.base, 0, 0);
   g.drawImage(layers.settled, 0, 0);
   const now = performance.now();
   for (const s of anims) if (!s.word) drawPiece(g, s, clamp((now - s.t0) / s.dur, 0, 1));
+  g.drawImage(layers.decor, 0, 0);
   g.drawImage(layers.words, 0, 0);
   for (const s of anims) if (s.word) drawPiece(g, s, clamp((now - s.t0) / s.dur, 0, 1));
+  if (dragPiece) drawPiece(g, dragPiece, 1);
   if (highlight && now < highlight.until) {
     const s = highlight.rec; g.save(); g.translate(s.x, s.y); g.rotate(s.rot);
     g.strokeStyle = isDark(P.bg) ? '#fff' : '#c0262d'; g.lineWidth = 6; g.setLineDash([14, 10]); g.strokeRect(-s.w / 2 - 8, -s.h / 2 - 8, s.w + 16, s.h + 16); g.restore();
@@ -586,13 +589,19 @@ function exportCanvas() {
   return out;
 }
 function clearPieces() {
-  sctx.clearRect(0, 0, W, H); wctx.clearRect(0, 0, W, H); gctx.clearRect(0, 0, W, H); layers.caption.getContext('2d').clearRect(0, 0, W, H);
+  sctx.clearRect(0, 0, W, H); wctx.clearRect(0, 0, W, H); gctx.clearRect(0, 0, W, H); for (const k of ['caption', 'base', 'decor']) layers[k].getContext('2d').clearRect(0, 0, W, H); dragPiece = null;
   anims = []; history = []; highlight = null; captionText = '';
   if (typeof resetPaint === 'function') resetPaint();
 }
 // remix: start on top of someone else's finished piece
 let remixFrom = null; // { id, no, name, img }
-function drawRemixBase() { if (remixFrom && remixFrom.img) sctx.drawImage(remixFrom.img, 0, 0, W, H); }
+function drawRemixBase() { const g = layers.base.getContext('2d'); g.clearRect(0, 0, W, H); if (remixFrom && remixFrom.img) g.drawImage(remixFrom.img, 0, 0, W, H); }
+// after a piece is done, pieces can be dragged: the collage is redrawn from its history
+let dragPiece = null;
+function rebuildFromHistory() {
+  sctx.clearRect(0, 0, W, H); wctx.clearRect(0, 0, W, H); prevCenter = null;
+  for (const s of history) if (s.canvas && s !== dragPiece) commitPiece(s);
+}
 // faded photocopy of the previous guest's collage
 let lastCollage = null;
 function prepareGhost() {

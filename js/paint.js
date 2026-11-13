@@ -182,18 +182,22 @@ function drawScratchStep(j, n = 3) {
 
 // ---------- painted or scratched words ----------
 const PAINT_FACES = ['"Marker Felt", "Chalkboard SE", "Bradley Hand", "Segoe Print", cursive', '900 "Arial Black", Impact, "PingFang SC", "Apple SD Gothic Neo", sans-serif', '"Bradley Hand", "Segoe Print", "Chalkboard SE", cursive', '"Instrument Serif", "Songti SC", Georgia, serif'];
+function paintWordWidth(text, size, face) {
+  const [w, f] = face.split('|'), t = mk(4, 4).getContext('2d'); t.font = `${w}${Math.round(size)}px ${f}`;
+  return (SHAPED.test(text) ? [text] : graphemes(text)).reduce((a, u) => a + t.measureText(u).width * (1 + P.scatter * .35) + size * .06, 0);
+}
 function faceFor() {
   if (P.typeface !== 'mixed') { const [w, f] = TYPEFACES[P.typeface] || TYPEFACES.hand; return w + '|' + f; }
   const f = PAINT_FACES[Math.floor(rnd(PAINT_FACES.length))]; return f.startsWith('900') ? '900 |' + f.slice(4) : '|' + f;
 }
-function paintWordJob(text, lang, a0, a1) {
+function paintWordJob(text, lang, a0, a1, at) {
   if (P.caseMode === 'UPPER') text = text.toUpperCase(); else if (P.caseMode === 'lower') text = text.toLowerCase();
   const sp = storyPigment(text);
   if (sp && P.storyColor) story = { p: sp, word: text, at: performance.now() };
   const pig = currentPigment(); lastPigment = pig;
   const scratched = P.letterStyle === 'scratched' || (P.letterStyle === 'auto' && scratchLevel > lerp(.75, .25, P.scratchBias));
-  const b = bounds(), size = lerp(lerp(40, 80, P.wordSize), lerp(80, 190, P.wordSize), lastLoud);
-  const [wgt, fam] = faceFor().split('|'), font = `${wgt}${Math.round(size)}px ${fam}`;
+  const b = bounds(), size = at ? at.size : lerp(lerp(40, 80, P.wordSize), lerp(80, 190, P.wordSize), lastLoud);
+  const [wgt, fam] = (at && at.face ? at.face : faceFor()).split('|'), font = `${wgt}${Math.round(size)}px ${fam}`;
   const units = SHAPED.test(text) ? [text] : graphemes(text), tmp = mk(4, 4).getContext('2d'); tmp.font = font;
   const widths = units.map(u => tmp.measureText(u).width * (1 + P.scatter * .35) + size * .06), total = widths.reduce((a, c) => a + c, 0);
   // find a spot away from earlier words
@@ -203,7 +207,8 @@ function paintWordJob(text, lang, a0, a1) {
     let o = 0; for (const r of paintWords) { const ix = Math.max(0, Math.min(cx + total / 2, r.x + r.w / 2) - Math.max(cx - total / 2, r.x - r.w / 2)); const iy = Math.max(0, Math.min(cy + size / 2, r.y + r.h / 2) - Math.max(cy - size / 2, r.y - r.h / 2)); o += ix * iy; }
     if (o < bestO) { bestO = o; best = [cx, cy]; }
   }
-  const [cx, cy] = best, rot = rnd(-1, 1) * lerp(.02, .3, Math.max(P.tilt, P.scatter * .7));
+  if (at) best = [at.x + total / 2, at.y];
+  const [cx, cy] = best, rot = at ? rnd(-.04, .04) : rnd(-1, 1) * lerp(.02, .3, Math.max(P.tilt, P.scatter * .7));
   paintWords.push({ x: cx, y: cy, w: total, h: size });
   const letters = []; let x = -total / 2;
   units.forEach((u, i) => { letters.push({ u, x: x + widths[i] / 2, dy: rnd(-1, 1) * size * P.scatter * .5 + Math.sin(i * .8) * size * .4 * P.wave, r: rnd(-1, 1) * P.scatter * .35 }); x += widths[i]; });

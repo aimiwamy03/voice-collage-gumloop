@@ -111,6 +111,44 @@ async function dgStop() {
 
 // ---------- words onto the page ----------
 let wordsPlaced = 0, wordRects = [], heardWords = [];
+// ---------- the transcript: after the countdown, every captured word flows onto the page in reading order ----------
+let transcriptQueue = [], tFlow = null;
+function planTranscript() {
+  const b = bounds(), words = transcriptQueue.map(w => w.text);
+  const face = P.mode === 'paint' ? (P.typeface !== 'mixed' ? (TYPEFACES[P.typeface] || TYPEFACES.hand).join('|') : '|"Marker Felt", "Chalkboard SE", "Bradley Hand", cursive') : null;
+  const widthOf = (t, size) => P.mode === 'paint' ? paintWordWidth(t, size, face) : t.length * size * .74 + size * .5;
+  // the biggest size at which everything said fits on the page (with room for late words)
+  let size = lerp(46, 110, P.wordSize);
+  for (let k = 0; k < 14; k++) {
+    let x = 0, lines = 1; const lineW = b.w - 80;
+    for (const t of words.concat(['…', '…', '…'])) { const w = widthOf(t, size) + size * .35; if (x + w > lineW) { lines++; x = 0; } x += w; }
+    if (lines * size * 1.55 <= b.h * .86) break; size *= .88;
+  }
+  const lines = []; tFlow = { size, face, x: b.x0 + 40, y: 0, lineH: size * 1.55, b, widthOf };
+  return tFlow;
+}
+function flowNextWord() {
+  const w = transcriptQueue.shift(); if (!w) return false;
+  const f = tFlow, b = f.b;
+  const s = P.mode === 'paint' ? null : makeWord(w.text, f.size);
+  const ww = s ? s.w - 30 : f.widthOf(w.text, f.size); // a cut-out word's canvas has 15px of margin each side
+  if (f.x + ww > b.x1 - 40 && f.x > b.x0 + 40) { f.x = b.x0 + 40 + rnd(0, f.size * .6); f.y += f.lineH; }
+  if (f.y === 0) f.y = b.y0 + f.size * 1.1;
+  const y = f.y + rnd(-.12, .12) * f.size;
+  if (s) pushPiece(s, f.x + ww / 2, y, rnd(-.05, .05) * (1 + P.tilt * 2), { word: true, t: recTime(), a0: w.a0, a1: w.a1, text: w.text });
+  else paintWordJob(w.text, w.lang, w.a0, w.a1, { x: f.x, y, size: f.size, face: f.face });
+  f.x += ww + f.size * .35;
+  return true;
+}
+async function writeTranscript(dgDone) {
+  if (P.wordsWhen !== 'after') return dgDone;
+  planTranscript(); setStatus('Time’s up — writing what you said onto the page…');
+  let finished = false; dgDone.then(() => { finished = true; });
+  const gap = lerp(260, 90, P.settle);
+  while (!finished || transcriptQueue.length) {
+    if (!flowNextWord()) await new Promise(r => setTimeout(r, 60)); else await new Promise(r => setTimeout(r, gap));
+  }
+}
 const heardLangs = new Map();
 function placeWord(text, lang, start, end) {
   text = (text || '').trim(); if (!text) return;
@@ -119,6 +157,7 @@ function placeWord(text, lang, start, end) {
   if (lang) { const base = lang.split('-')[0]; heardLangs.set(base, (heardLangs.get(base) || 0) + 1); currentLang = base; }
   heardWords.push(text); $('heard').textContent = '“' + text + '”';
   if (state !== 'listening' && state !== 'settling') return;
+  if (P.wordsWhen === 'after') { transcriptQueue.push({ text, lang, a0, a1 }); return; } // held until the countdown ends
   if (P.mode === 'paint') { if (wordsPlaced < 40) { paintWordJob(text, lang, a0, a1); wordsPlaced++; } return; }
   if (wordsPlaced >= Math.round(lerp(6, 36, P.wordsVsImages))) return;
   if (Math.random() > clamp(P.wordsVsImages * 2.2, 0, 1)) return;
@@ -254,7 +293,7 @@ async function startFile(file) {
 }
 function begin(calibrate) {
   clearPieces(); resetLayout(); seedShape(); prepareGhost(); drawRemixBase();
-  wordsPlaced = 0; wordRects = []; heardWords = []; heardLangs.clear(); currentLang = null; totalVoiced = 0; onsets = []; $('heard').textContent = '';
+  wordsPlaced = 0; wordRects = []; heardWords = []; transcriptQueue = []; tFlow = null; heardLangs.clear(); currentLang = null; totalVoiced = 0; onsets = []; $('heard').textContent = '';
   for (const k in F) F[k] = k === 'pitch' || k === 'brightness' ? .5 : 0;
   $('intro').classList.add('hidden'); $('after').classList.remove('show'); $('controls').classList.add('hidden');
   floor = .008; gate = .02;
@@ -321,21 +360,22 @@ async function finish() {
   if (state !== 'listening') return;
   state = 'settling'; setStatus(openEnded ? 'Finishing — letting the paint settle…' : 'Time’s up — gluing everything down…'); if (!openEnded) setRing(1); $('countdown').classList.remove('show'); $('finishBtn').classList.remove('show'); $('qBanner').classList.remove('show');
   if (mediaEl) mediaEl.pause();
-  await dgStop();
+  const dgDone = dgStop(); // late words keep arriving while the transcript is written
   try { srcNode && srcNode.disconnect(); analyser && analyser.disconnect(); } catch (e) {}
   if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
   await stopAudioRecording();
+  await writeTranscript(dgDone); await dgDone;
   if (P.mode === 'paint') {
     if (strokeNow && !strokeNow.ended) endStroke();
     const t0 = performance.now(); while ((paintJobs.length || (strokeNow && strokeNow.drawn < strokeNow.pts.length)) && performance.now() - t0 < 5000) await new Promise(r => setTimeout(r, 60));
   } else if (!history.length) { const b = bounds(); pushPiece(makeScrap(260, 180, .7), b.cx, b.cy, rnd(-.1, .1)); }
   await new Promise(r => setTimeout(r, Math.max(700, lerp(1000, 250, P.settle))));
   for (const s of anims) commitPiece(s); anims = [];
-  drawStampsAndStains(sctx);
+  drawStampsAndStains(layers.decor.getContext('2d'));
   await drawCaption();
   await new Promise(r => setTimeout(r, 1300)); // hold the final frame in the video
   await stopVideoRecording();
-  state = 'done'; setStatus('Done. Save it, listen back, or open it in 3D.'); showLevel(0); if (!openEnded) setRing(1); $('countdown').classList.remove('show'); $('hud').classList.add('idle');
+  state = 'done'; setStatus(P.mode === 'paint' ? 'Done. Drag on the canvas to smear the wet paint, listen back, or open it in 3D.' : 'Done. Drag any piece to move it (scroll to turn it), listen back, or open it in 3D.'); showLevel(0); if (!openEnded) setRing(1); $('countdown').classList.remove('show'); $('hud').classList.add('idle');
   await afterCollage();
 }
 let captionInfo = null, artistName = '';
