@@ -69,7 +69,7 @@ const DEFAULTS = {
   sensitivity: .5, pitchHeight: true, sessionSec: 30, askQuestion: true, wordsWhen: 'flowing',
   patch: { 'volume>size': 0, 'brightness>hue': 0, 'speed>scatter': .5, 'breath>blur': .5, 'pause>drift': 0 },
   // 3d + output
-  depth3d: .6, autoSculpture: false, recordVideo: true,
+  depth3d: .6, autoSculpture: false, recordVideo: true, captionOnImage: false,
 };
 
 const PRESETS = {
@@ -184,6 +184,7 @@ const SCHEMA = [
     R('depth3d', 'Sculpture depth', 'flat', 'deep'),
     B('autoSculpture', 'Open as 3D sculpture when done'),
     B('recordVideo', 'Record a stop-motion video'),
+    B('captionOnImage', 'Print the caption strip on the image'),
   ]},
 ];
 const ALL_ITEMS = SCHEMA.flatMap(s => s.items);

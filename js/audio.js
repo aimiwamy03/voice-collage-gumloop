@@ -395,8 +395,15 @@ async function drawCaption() {
   captionInfo = { no: collageNo, secs, langs: L, date: new Date(), after: remixFrom ? { no: remixFrom.no, name: remixFrom.name } : null };
   redrawCaption();
 }
+function captionLines() {
+  const ci = captionInfo; if (!ci) return ['', ''];
+  const by = artistName ? ` — ${artistName}` : '', after = ci.after ? `, after No. ${pad3(ci.after.no)}${ci.after.name ? ' by ' + ci.after.name : ''}` : '';
+  const spoken = `${ci.langs.length ? 'Spoken in ' + ci.langs.join(', ') + ',' : 'Spoken'} ${Math.floor(ci.secs / 60)}:${String(ci.secs % 60).padStart(2, '0')}`;
+  return [`No. ${pad3(ci.no)}${by}${after}`, `${spoken}.  San Francisco. ${ci.date.getFullYear()}.`];
+}
 function redrawCaption() {
   const ci = captionInfo; if (!ci) return;
+  const [l1, l2] = captionLines(); const lab = $('pieceLabel'); if (lab) { lab.innerHTML = `<b></b><span></span>`; lab.querySelector('b').textContent = l1; lab.querySelector('span').textContent = l2; lab.style.display = ''; }
   const g = layers.caption.getContext('2d'); g.clearRect(0, 0, W, H);
   const by = artistName ? ` — ${artistName}` : '', after = ci.after ? `, after No. ${pad3(ci.after.no)}${ci.after.name ? ' by ' + ci.after.name : ''}` : '';
   const spoken = `${ci.langs.length ? 'Spoken in ' + ci.langs.join(', ') + ',' : 'Spoken'} ${Math.floor(ci.secs / 60)}:${String(ci.secs % 60).padStart(2, '0')}`;

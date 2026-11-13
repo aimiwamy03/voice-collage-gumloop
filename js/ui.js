@@ -22,6 +22,7 @@ function onParam(k) {
   if (state === 'done') render();
   if (k === 'sessionSec' && state === 'idle') showIdleTime();
   if (k === 'askQuestion') showQuestion();
+  if (k === 'captionOnImage' && state === 'done') { redrawCaption(); render(); finalCanvas = exportCanvas(); }
   markPreset(null);
 }
 function control(item, compact) {
@@ -254,7 +255,7 @@ function resetToIdle(resetParams) {
   $('noLabel').textContent = 'No. ' + pad3(collageNo); close3D(); listenMode = false; $('listenBtn').classList.remove('on'); $('stage').classList.remove('listening');
   if (resetParams && resetAfter) { const m = P.mode; P = JSON.parse(JSON.stringify(savedDefaults)); if (m !== P.mode) { P.mode = m; if (m === 'paint') P = { ...P, ...JSON.parse(JSON.stringify(PAINT_PRESETS['Oil sketch'])) }; } markPreset(null); }
   applyShape(); clearPieces(); syncAll(); syncMode(); state = 'idle'; showIdleTime(); showLevel(0); refreshKeyUI(); $('hud').classList.add('idle');
-  captionInfo = null; currentWorkId = null; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
+  captionInfo = null; currentWorkId = null; $('pieceLabel').style.display = 'none'; $('after').classList.remove('show'); $('intro').classList.remove('hidden'); $('controls').classList.remove('hidden');
 }
 $('againBtn').onclick = () => { resetToIdle(true); remixFrom = null; showRemixChip(); setArtistName('', false); $('nameIn').value = ''; nextQuestion(); showStep(1); };
 // ---------- drag anything once the piece is done ----------
@@ -491,7 +492,7 @@ async function open3D() {
   if (P.mode === 'paint') {
     // the painting as a relief: thick paint stands up from the canvas and catches the light
     const cw = 300, chh = Math.round(300 * H / W), colour = mk(W, H), cg = colour.getContext('2d');
-    cg.save(); shapePath(cg); cg.clip(); cg.drawImage(layers.paper, 0, 0); cg.drawImage(layers.settled, 0, 0); cg.drawImage(layers.caption, 0, 0); cg.restore();
+    cg.save(); shapePath(cg); cg.clip(); cg.drawImage(layers.paper, 0, 0); cg.drawImage(layers.settled, 0, 0); if (P.captionOnImage) cg.drawImage(layers.caption, 0, 0); cg.restore();
     const hm = mk(cw, chh), hg = hm.getContext('2d'); if ('filter' in hg) hg.filter = 'blur(1.2px)'; hg.drawImage(layers.settled, 0, 0, cw, chh);
     const hd = hg.getImageData(0, 0, cw, chh).data;
     const geo = new T.PlaneGeometry(W, H, cw - 1, chh - 1), pos = geo.attributes.position, relief = lerp(8, 160, P.depth3d) * lerp(.6, 1.4, P.impasto);
@@ -513,7 +514,7 @@ async function open3D() {
     const board = cutout(layers.paper); board.position.z = -span * .55 - 30; board.castShadow = false; group.add(board);
     const edge = new T.Mesh(new T.BoxGeometry(W, H, 40), new T.MeshStandardMaterial({ color: new T.Color(P.bg).multiplyScalar(.72), roughness: .95 }));
     edge.position.z = board.position.z - 21; edge.receiveShadow = true; if (!['circle', 'blob', 'arch'].includes(P.shape)) group.add(edge);
-    const cap = cutout(layers.caption); cap.position.z = span * .5 + 20; cap.userData.z = cap.position.z; group.add(cap); pieces.push(cap);
+    if (P.captionOnImage) { const cap = cutout(layers.caption); cap.position.z = span * .5 + 20; cap.userData.z = cap.position.z; group.add(cap); pieces.push(cap); }
     const list = history.filter(s => s.canvas), N = list.length;
     list.forEach((s, i) => {
       const m = cutout(s.canvas, { opacity: s.alpha });

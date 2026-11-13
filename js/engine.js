@@ -518,7 +518,7 @@ function drawDeco(g) {
     g.save(); g.fillStyle = '#fbfaf6'; g.beginPath(); g.rect(0, 0, W, H); g.rect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0); g.fill('evenodd');
     g.globalCompositeOperation = 'multiply'; g.globalAlpha = .05; for (let y = 0; y < H; y += 300) for (let x = 0; x < W; x += 300) g.drawImage(grain, x, y);
     g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-    if (captionText) { g.fillStyle = '#2a2a2a'; g.font = '42px "Bradley Hand", "Segoe Print", "Chalkboard SE", cursive'; g.textAlign = 'center'; g.fillText(captionText.replace(/\s+/g, ' '), W / 2, H - 130, W - 160); }
+    if (captionText && P.captionOnImage) { g.fillStyle = '#2a2a2a'; g.font = '42px "Bradley Hand", "Segoe Print", "Chalkboard SE", cursive'; g.textAlign = 'center'; g.fillText(captionText.replace(/\s+/g, ' '), W / 2, H - 130, W - 160); }
     g.restore();
   }
   if (P.shape === 'filmstrip') {
@@ -565,7 +565,7 @@ function composite(g, live) {
   }
   drawFx(g, live);
   drawDeco(g);
-  g.drawImage(layers.caption, 0, 0);
+  if (P.captionOnImage) g.drawImage(layers.caption, 0, 0);
   g.restore();
 }
 function render() {
