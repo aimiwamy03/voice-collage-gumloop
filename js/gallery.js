@@ -41,11 +41,44 @@ function makeFigure(T, rand, top) {
   return g;
 }
 
+// a rigged, animated visitor (three.js example mannequin, Mixamo rig): proper anatomy, idle breathing, a real walk
+let rig = null;
+async function loadRig() {
+  if (rig !== null) return rig;
+  try {
+    const base = new URL('js/vendor/', location.href).href;
+    const [{ GLTFLoader }, SU] = await Promise.all([import(base + 'GLTFLoader.js'), import(base + 'SkeletonUtils.js')]);
+    const gltf = await new GLTFLoader().loadAsync(base + 'models/Xbot.glb');
+    const clips = Object.fromEntries(gltf.animations.map(a => [a.name, a]));
+    rig = { gltf, clips, clone: SU.clone };
+  } catch (e) { console.warn('rig failed, using simple figures', e); rig = false; }
+  return rig;
+}
+function makeRigFigure(T, rand, top, legsCol) {
+  const f = rig.clone(rig.gltf.scene), h = 1.58 + rand() * .3;
+  // one quiet tone per figure, like an architect's model: plaster white, or a muted take on their work's colour
+  const c = new T.Color(rand() < .45 ? '#ecebe6' : top), hsl = {}; c.getHSL(hsl);
+  c.setHSL(hsl.h, Math.min(hsl.s, .28), clamp(hsl.l, .3, .86));
+  const shade = c.clone().multiplyScalar(.82);
+  f.traverse(o => {
+    if (!o.isMesh) return;
+    o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+    const joints = /Joints/i.test(o.material.name);
+    o.material = new T.MeshStandardMaterial({ color: joints ? shade : c, roughness: .88, metalness: 0 });
+  });
+  f.scale.setScalar(h / 1.8);
+  const mixer = new T.AnimationMixer(f), idle = mixer.clipAction(rig.clips.idle), walk = mixer.clipAction(rig.clips.walk);
+  idle.play(); idle.time = rand() * rig.clips.idle.duration; idle.timeScale = .75 + rand() * .35;
+  f.userData = { mixer, idle, walkAction: walk, rig: true };
+  return f;
+}
+
 async function openGallery(focusNewest) {
   $('gallery').classList.add('show'); document.body.classList.add('in3d');
   $('galNote').textContent = 'hanging the work…';
   try { three = three || await import(new URL('js/vendor/three.module.min.js', location.href).href); }
-  catch (e) { try { three = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js'); } catch (e2) { $('galNote').textContent = 'Couldn’t load 3D.'; return; } }
+  catch (e) { try { three = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js'); rig = false; } catch (e2) { $('galNote').textContent = 'Couldn’t load 3D.'; return; } }
+  await loadRig();
   const T = three; closeGallery(true);
   let works = []; try { works = (await allWorks(false)).sort((a, b) => a.at - b.at); } catch (e) {}
   const langs = new Set(); works.forEach(w => (w.langs || []).forEach(l => langs.add(l)));
@@ -139,15 +172,16 @@ async function openGallery(focusNewest) {
     const spot = m.position.clone().setY(0).addScaledVector(normal, d).addScaledVector(side, lateral);
     spot.x = clamp(spot.x, -G.W / 2 + .7, G.W / 2 - .7); spot.z = clamp(spot.z, -G.L + .7, 3);
     const top = rand() < .4 ? avgColour(img) : PALETTE_TOP[Math.floor(rand() * PALETTE_TOP.length)];
-    const f = makeFigure(T, rand, top); f.position.copy(spot);
-    f.lookAt(m.position.x, 0, m.position.z); f.rotateY(Math.PI); // stand facing the work, back to us
+    const f = rig ? makeRigFigure(T, rand, top, PALETTE_LEGS[Math.floor(rand() * PALETTE_LEGS.length)]) : makeFigure(T, rand, top); f.position.copy(spot);
+    const face = (o, x, z) => { o.lookAt(x, 0, z); if (!o.userData.rig) o.rotateY(Math.PI); };
+    f.userData.face = face; face(f, m.position.x, m.position.z); // stand facing the work, back to us
     f.userData = { ...f.userData, work: w, home: spot.clone(), phase: rand() * 6, art: m };
     f.traverse(o => { if (o.isMesh) o.userData.work = w; });
     scene.add(f); people.push(f);
   });
   // the newest visitor walks in from the door
   const newest = people.length ? people[people.length - 1] : null;
-  if (newest && focusNewest) { newest.userData.walk = { from: new T.Vector3(rnd(-2, 2), 0, 2.5), t0: performance.now() + 900, dur: Math.max(4000, newest.userData.home.distanceTo(new T.Vector3(0, 0, 2.5)) * 650) }; newest.position.copy(newest.userData.walk.from); }
+  if (newest && focusNewest) { newest.userData.walk = { from: new T.Vector3(rnd(-2, 2), 0, 2.5), t0: performance.now() + 900, dur: Math.max(4000, newest.userData.home.distanceTo(new T.Vector3(0, 0, 2.5)) * (newest.userData.rig ? 820 : 650)) }; if (newest.userData.rig) { newest.userData.idle.stop(); newest.userData.walkAction.play(); newest.userData.walking = true; } newest.position.copy(newest.userData.walk.from); }
 
   // ---------- walking & looking ----------
   let yaw = 0, pitch = .02, pos = new T.Vector3(0, G.EYE, 3.6), glide = null;
@@ -211,12 +245,17 @@ async function openGallery(focusNewest) {
     // visitors breathe and shift their weight; the newest walks in
     for (const f of people) {
       const u = f.userData;
-      if (u.walk) {
-        const k = clamp((now - u.walk.t0) / u.walk.dur, 0, 1);
-        if (k > 0) { f.position.lerpVectors(u.walk.from, u.home, easeOut(k)); f.position.y = Math.abs(Math.sin(k * u.walk.dur / 260)) * .035 * (1 - k); }
-        const look = k < .85 ? u.home : u.art.position; f.lookAt(look.x, 0, look.z); f.rotateY(Math.PI);
-        if (k >= 1) { delete u.walk; f.lookAt(u.art.position.x, 0, u.art.position.z); f.rotateY(Math.PI); }
-      } else f.rotation.z = Math.sin(now / 1900 + u.phase) * .012;
+      if (u.mixer) u.mixer.update(dt / 1000);
+      if (u.walk && typeof u.walk.t0 === 'number' && u.walk.from) {
+        const k = clamp((now - u.walk.t0) / u.walk.dur, 0, 1), ease = u.rig ? k : easeOut(k);
+        if (u.rig && k > 0 && !u.walking) { u.walking = true; u.walkAction.reset().play(); }
+        if (k > 0) { f.position.lerpVectors(u.walk.from, u.home, ease); if (!u.rig) f.position.y = Math.abs(Math.sin(k * u.walk.dur / 260)) * .035 * (1 - k); }
+        const look = k < .9 ? u.home : u.art.position; u.face(f, look.x, look.z);
+        if (k >= 1) {
+          delete u.walk; u.face(f, u.art.position.x, u.art.position.z);
+          if (u.rig) { u.idle.reset().play(); u.walkAction.crossFadeTo(u.idle, .5, false); }
+        }
+      } else if (!u.rig) f.rotation.z = Math.sin(now / 1900 + u.phase) * .012;
     }
     cam.position.copy(pos); cam.rotation.set(0, 0, 0, 'YXZ'); cam.rotation.order = 'YXZ'; cam.rotation.y = yaw; cam.rotation.x = pitch;
     renderer.render(scene, cam); raf = requestAnimationFrame(tick);
