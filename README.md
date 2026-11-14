@@ -25,3 +25,11 @@ Choose **Paint** on the start screen. The voice drags oil paint across linen: pi
 - `js/vendor/three.module.min.js` — three.js r160 (MIT), bundled so 3D works offline
 - `js/vendor/jszip.min.js` — JSZip 3.10 (MIT), for the archive export
 - `media/` — web-size copies of Aimi's work; `python3 dev/build.py` regenerates `js/sources.js`
+
+## Duet (experimental track) — `/duet/`
+Two people, one painting. Each voice paints in its own family of colour (warm earths / cool blues).
+- **Talking over each other** scrapes through the paint to a hidden photo from the archive; an **interruption** cuts one long scrape.
+- **Holding the floor** (6 s+) widens the brush so it covers what the other left.
+- **Shared silence** (3 s+) lets the paint settle under a thin veil.
+- Telling voices apart: **two mics** (a stereo receiver, e.g. DJI Mic Mini with one transmitter each → left/right; most reliable, real overlaps), **one mic** (pitch-based guess per stretch of speech, words labelled by Deepgram diarization), or **take turns** (space / tap passes the turn).
+- Words (optional) use the same Deepgram key as the main piece. Finished duets join the shared archive; in the 3D gallery a duet gets two visitors.

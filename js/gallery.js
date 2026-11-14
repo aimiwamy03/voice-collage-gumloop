@@ -167,7 +167,9 @@ async function openGallery(focusNewest) {
     m.castShadow = true; m.userData.work = w; scene.add(m); art.push(m); window.__gal = { art, cam };
     // the visitor who made it
     const normal = slot.wall === 'end' ? new T.Vector3(0, 0, 1) : new T.Vector3(slot.wall === 'left' ? 1 : -1, 0, 0);
-    const d = 1.9 + rand() * 2.4, lateral = (rand() - .5) * 1.1;
+    const d = 1.9 + rand() * 2.4, lateral0 = (rand() - .5) * 1.1;
+    for (let k = 0; k < (w.mode === 'duet' ? 2 : 1); k++) { // a duet sends two visitors, side by side
+    const lateral = lateral0 + (w.mode === 'duet' ? (k ? .32 : -.32) : 0);
     const side = new T.Vector3(normal.z, 0, -normal.x);
     const spot = m.position.clone().setY(0).addScaledVector(normal, d).addScaledVector(side, lateral);
     spot.x = clamp(spot.x, -G.W / 2 + .7, G.W / 2 - .7); spot.z = clamp(spot.z, -G.L + .7, 3);
@@ -178,6 +180,7 @@ async function openGallery(focusNewest) {
     f.userData = { ...f.userData, work: w, home: spot.clone(), phase: rand() * 6, art: m };
     f.traverse(o => { if (o.isMesh) o.userData.work = w; });
     scene.add(f); people.push(f);
+    }
   });
   // the newest visitor walks in from the door
   const newest = people.length ? people[people.length - 1] : null;

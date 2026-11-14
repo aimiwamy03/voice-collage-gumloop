@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache">
+<title>duet — two voices, one painting</title>
+<style>
+  :root { --ink:#151412; --dim:#77736b; --paper:#efece5; --a:#b8432a; --b:#2f4f8f; }
+  * { box-sizing:border-box; margin:0; }
+  html, body { height:100%; background:#e6e2d9; color:var(--ink); font:15px/1.45 Georgia, 'Times New Roman', serif; overflow:hidden; }
+  .mono { font:11px/1.4 ui-monospace, Menlo, monospace; letter-spacing:.12em; text-transform:uppercase; }
+  #wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:24px; }
+  #cv { max-width:100%; max-height:100%; width:auto; height:auto; aspect-ratio:4/3; display:block; box-shadow:0 18px 40px rgba(0,0,0,.18), 0 1px 2px rgba(0,0,0,.08); background:#ddd; }
+  /* start card */
+  #start { position:fixed; inset:0; z-index:10; display:flex; align-items:center; justify-content:center; background:rgba(230,226,217,.94); transition:opacity .6s; }
+  #start.gone { opacity:0; pointer-events:none; }
+  .card { width:min(640px, 92vw); display:flex; flex-direction:column; gap:18px; }
+  .card h1 { font-weight:normal; font-size:44px; line-height:1; }
+  .card .lede { color:#3b3833; font-size:17px; }
+  .q { font-size:26px; font-style:italic; line-height:1.25; min-height:2.5em; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .names input { flex:1; min-width:140px; font:inherit; font-size:17px; padding:10px 12px; border:1px solid rgba(0,0,0,.25); background:#fff8; }
+  .names input#nameA { border-left:4px solid var(--a); } .names input#nameB { border-left:4px solid var(--b); }
+  button { font:11px/1 ui-monospace, Menlo, monospace; letter-spacing:.12em; text-transform:uppercase; padding:11px 14px; border:1px solid var(--ink); background:transparent; color:var(--ink); cursor:pointer; }
+  button.on, button.primary { background:var(--ink); color:#f4f1ea; }
+  button.primary { font-size:13px; padding:15px 22px; }
+  .seg button { border-right-width:0; } .seg button:last-child { border-right-width:1px; }
+  .seg { display:flex; }
+  .hint { color:var(--dim); font-size:13px; min-height:2.6em; }
+  .key { display:none; gap:8px; } .key.show { display:flex; } .key input { flex:1; font:12px ui-monospace, Menlo, monospace; padding:9px; border:1px solid rgba(0,0,0,.25); background:#fff8; }
+  a { color:inherit; }
+  /* live chrome: almost nothing */
+  #live { position:fixed; left:0; right:0; bottom:14px; z-index:5; display:flex; justify-content:center; gap:28px; align-items:center; opacity:0; transition:opacity .6s; pointer-events:none; }
+  body.running #live, body.done #live { opacity:1; }
+  .who { display:flex; align-items:center; gap:8px; color:rgba(0,0,0,.45); transition:color .15s; }
+  .who i { width:9px; height:9px; border-radius:50%; background:currentColor; opacity:.35; transition:opacity .1s, transform .1s; }
+  .who.active { color:var(--ink); } .who.active i { opacity:1; transform:scale(1.5); }
+  #whoA i { color:var(--a); } #whoB i { color:var(--b); }
+  #clock { color:rgba(0,0,0,.4); min-width:44px; text-align:center; }
+  #event { position:fixed; bottom:42px; left:50%; transform:translateX(-50%); z-index:5; color:rgba(0,0,0,.5); opacity:0; transition:opacity .5s; }
+  #event.show { opacity:1; }
+  #qLive { position:fixed; top:16px; left:20px; right:20px; text-align:center; font-style:italic; color:rgba(0,0,0,.42); font-size:15px; z-index:4; transition:opacity .6s; }
+  body:not(.running) #qLive { opacity:0; }
+  #finish { position:fixed; right:16px; bottom:10px; z-index:6; opacity:0; pointer-events:none; border-color:rgba(0,0,0,.2); color:rgba(0,0,0,.45); }
+  body.running #finish { opacity:1; pointer-events:auto; }
+  #after { position:fixed; right:16px; bottom:10px; z-index:6; display:none; gap:8px; }
+  body.done #after { display:flex; }
+  #turnHint { display:none; } body.turns.running #turnHint { display:inline; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="cv" width="1600" height="1200"></canvas></div>
+
+<div id="start">
+  <div class="card">
+    <div class="mono" style="color:var(--dim)">voice → collage · duet track (experimental) · <a href="../">back to the solo piece</a></div>
+    <h1>Duet</h1>
+    <p class="lede">Two people, one painting. Each voice carries its own colour. Where you talk over each other, the paint scrapes through to a picture hidden underneath. Where one of you talks for a long time, the paint covers what the other left. When you both go quiet, the paint has time to settle.</p>
+    <div class="q" id="q"></div>
+    <div class="row"><button id="nextQ">↻ another question</button></div>
+    <div class="row names"><input id="nameA" placeholder="first voice (optional)"><input id="nameB" placeholder="second voice (optional)"></div>
+    <div>
+      <div class="mono" style="color:var(--dim); margin-bottom:6px">how to tell your voices apart</div>
+      <div class="seg" id="modeSeg">
+        <button data-m="stereo">two mics</button><button data-m="voice">one mic</button><button data-m="turns">take turns</button>
+      </div>
+      <div class="hint" id="modeHint"></div>
+    </div>
+    <div>
+      <div class="mono" style="color:var(--dim); margin-bottom:6px">length</div>
+      <div class="seg" id="lenSeg"><button data-s="60">1 min</button><button data-s="120">2 min</button><button data-s="0">open</button></div>
+    </div>
+    <div class="row"><button class="primary" id="go">Begin</button><button id="keyBtn">words: off</button></div>
+    <div class="key" id="keyRow"><input id="keyIn" type="password" placeholder="Deepgram key (kept in this browser only)"><button id="keySave">save</button></div>
+  </div>
+</div>
+
+<div id="qLive"></div>
+<div id="event" class="mono"></div>
+<div id="live" class="mono">
+  <span class="who" id="whoA"><i></i><span id="labA">A</span></span>
+  <span id="clock">0:00</span>
+  <span class="who" id="whoB"><i></i><span id="labB">B</span></span>
+  <span id="turnHint" style="color:rgba(0,0,0,.4)">space = pass the turn</span>
+</div>
+<button id="finish">finished ⏎</button>
+<div id="after"><button id="save">download</button><button id="again" class="primary">again</button></div>
+
+<script src="../js/sources.js"></script>
+<script src="duet.js"></script>
+</body>
+</html>
