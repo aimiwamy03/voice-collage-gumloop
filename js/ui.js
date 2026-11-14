@@ -170,8 +170,8 @@ $('noLabel').addEventListener('click', () => { const t = performance.now(); taps
 document.addEventListener('keydown', e => {
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
   if (e.key === 's' || e.key === 'S') $('studio').classList.contains('show') ? $('studio').classList.remove('show') : openStudio();
-  if (e.key === 'w' || e.key === 'W') $('archive').classList.contains('show') ? $('archive').classList.remove('show') : openArchive();
-  if (e.key === 'Escape') { $('studio').classList.remove('show'); $('archive').classList.remove('show'); close3D(); }
+  if (e.key === 'w' || e.key === 'W') { if ($('gallery').classList.contains('show')) return; $('archive').classList.contains('show') ? $('archive').classList.remove('show') : openGallery(false); }
+  if (e.key === 'Escape') { $('studio').classList.remove('show'); $('archive').classList.remove('show'); close3D(); closeGallery(); }
 });
 
 // ---------- MIDI knobs (learn) ----------
@@ -261,6 +261,7 @@ $('videoBtn').onclick = () => { if (videoBlob) shareOrDownload(videoBlob, fileBa
 $('listenBtn').onclick = () => { listenMode = !listenMode; $('listenBtn').classList.toggle('on', listenMode); $('stage').classList.toggle('listening', listenMode); setStatus(listenMode ? 'Tap any piece to hear the moment that tore it.' : 'Done. Save it, listen back, or open it in 3D.'); };
 $('sculptBtn').onclick = () => open3D();
 function resetToIdle(resetParams) {
+  document.body.classList.remove('immersive', 'im-live', 'im-done');
   if (state === 'done' || state === 'idle') { if (state === 'done') { collageNo++; } }
   $('noLabel').textContent = 'No. ' + pad3(collageNo); close3D(); listenMode = false; $('listenBtn').classList.remove('on'); $('stage').classList.remove('listening');
   if (resetParams && resetAfter) { const m = P.mode; P = JSON.parse(JSON.stringify(savedDefaults)); if (m !== P.mode) { P.mode = m; if (m === 'paint') P = { ...P, ...JSON.parse(JSON.stringify(PAINT_PRESETS['Oil sketch'])) }; } markPreset(null); }
@@ -424,8 +425,9 @@ $('archClose').onclick = () => $('archive').classList.remove('show');
 $('archive').onclick = e => { if (e.target.id === 'archive') $('archive').classList.remove('show'); };
 $('archTonight').onclick = () => { archiveFilter = 'tonight'; openArchive(); };
 $('archAll').onclick = () => { archiveFilter = 'all'; openArchive(); };
-$('openArchive').onclick = () => openArchive();
-$('archiveBtn').onclick = () => openArchive();
+$('openArchive').onclick = () => openGallery(false);
+$('archiveBtn').onclick = () => openGallery(true);
+$('archWalk').onclick = () => { $('archive').classList.remove('show'); openGallery(false); };
 $('openWall').onclick = () => { $('studio').classList.remove('show'); openArchive(); };
 $('archZip').onclick = async () => {
   $('archZip').textContent = 'Packing…';
@@ -575,3 +577,17 @@ varyShape(); applyShape(); syncAll(); refreshKeyUI(); showIdleTime(); syncMode()
 })();
 loadSources();
 window.__vc = { applyPreset, surprise, get P() { return P; }, placeWord, open3D, openArchive, startRemix, allWorks, get history() { return history; } };
+
+// ---------- immersive: step back out of the surface once the piece is made ----------
+function zoomOut() {
+  if (!document.body.classList.contains('immersive')) return;
+  document.body.classList.remove('immersive', 'im-live', 'im-done');
+  setTimeout(() => window.dispatchEvent(new Event('resize')), 950);
+}
+$('zoomOut').onclick = zoomOut;
+$('imFinish').onclick = () => { if (state === 'listening') finish(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && state === 'done' && !$('gallery').classList.contains('show')) zoomOut(); });
+window.addEventListener('wheel', e => { // a scroll outward, off the canvas, steps back
+  if (state !== 'done' || !document.body.classList.contains('immersive') || e.deltaY <= 0) return;
+  if ($('stage').contains(e.target)) return; zoomOut();
+}, { passive: true });

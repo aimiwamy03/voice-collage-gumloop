@@ -306,6 +306,7 @@ function begin(calibrate) {
   wordsPlaced = 0; wordRects = []; heardWords = []; transcriptQueue = []; tFlow = null; clearInterval(liveFlusher); liveFlusher = null; heardLangs.clear(); currentLang = null; totalVoiced = 0; onsets = []; $('heard').textContent = '';
   for (const k in F) F[k] = k === 'pitch' || k === 'brightness' ? .5 : 0;
   $('intro').classList.add('hidden'); $('after').classList.remove('show'); $('controls').classList.add('hidden');
+  document.body.classList.add('immersive', 'im-live'); document.body.classList.remove('im-done'); setTimeout(() => window.dispatchEvent(new Event('resize')), 950);
   floor = .008; gate = .02;
   if (calibrate) {
     state = 'calibrating'; $('hud').classList.remove('idle'); $('voiceHint').textContent = P.mode === 'paint' ? '· speak past the red line to paint' : '· speak past the red line to tear paper'; setStatus('Stay quiet for a second — measuring the room…'); const samples = [], t0 = performance.now();
@@ -385,7 +386,8 @@ async function finish() {
   await drawCaption();
   await new Promise(r => setTimeout(r, 1300)); // hold the final frame in the video
   await stopVideoRecording();
-  state = 'done'; setStatus(P.mode === 'paint' ? 'Done. Drag on the canvas to smear the wet paint, listen back, or open it in 3D.' : 'Done. Drag any piece to move it (scroll to turn it), listen back, or open it in 3D.'); showLevel(0); if (!openEnded) setRing(1); $('countdown').classList.remove('show'); $('hud').classList.add('idle');
+  state = 'done'; document.body.classList.remove('im-live'); if (document.body.classList.contains('immersive')) document.body.classList.add('im-done');
+  setStatus(P.mode === 'paint' ? 'Done. Drag on the canvas to smear the wet paint, listen back, or open it in 3D.' : 'Done. Drag any piece to move it (scroll to turn it), listen back, or open it in 3D.'); showLevel(0); if (!openEnded) setRing(1); $('countdown').classList.remove('show'); $('hud').classList.add('idle');
   await afterCollage();
 }
 let captionInfo = null, artistName = '';

@@ -169,9 +169,39 @@
   .finish.show { display:block; }
   .piecelabel { margin-top:14px; padding-top:10px; border-top:1px solid rgba(0,0,0,.15); font-size:12px; line-height:1.6; display:flex; flex-direction:column; }
   .piecelabel b { font-weight:500; } .piecelabel span { color:var(--dim); }
+  .gallery { position:fixed; inset:0; z-index:45; display:none; background:#f3f1ec; }
+  .gallery.show { display:block; }
+  #galCanvas, #galCanvas canvas { width:100%; height:100%; display:block; } #galCanvas canvas { touch-action:none; cursor:grab; }
+  .galbar { position:absolute; left:20px; right:20px; top:16px; display:flex; gap:10px; align-items:center; }
+  .galbar button { min-width:0; padding:9px 14px; font-size:11px; background:rgba(243,241,236,.85); }
+  .galtitle { font-family:'Instrument Serif', serif; font-size:30px; line-height:1; }
+  .galnote { position:absolute; left:20px; bottom:18px; font-size:11px; color:#4a4740; letter-spacing:.04em; }
+  .galwalk { position:absolute; right:20px; bottom:16px; display:flex; gap:6px; }
+  .galwalk button { min-width:0; width:44px; height:44px; padding:0; font-size:18px; background:rgba(243,241,236,.85); color:var(--ink); }
+  .galtip { position:fixed; display:none; flex-direction:column; gap:2px; pointer-events:none; background:rgba(20,20,20,.88); color:#f3f1ec; padding:8px 10px; font-size:11px; max-width:280px; z-index:46; }
+  .galtip span { opacity:.75; } .galtip span:first-of-type { font-family:'Instrument Serif', serif; font-style:italic; font-size:14px; opacity:1; }
+  .galcard { position:absolute; right:20px; top:76px; width:min(380px, calc(100vw - 40px)); max-height:calc(100vh - 160px); overflow:auto; background:#f6f4ef; padding:16px; box-shadow:0 18px 50px rgba(0,0,0,.25); display:none; flex-direction:column; gap:10px; }
+  .galcard.show { display:flex; } .galcard img { width:100%; display:block; } .galcard h3 { font-family:'Instrument Serif', serif; font-weight:400; font-size:26px; margin:0; }
+  .galcard button { min-width:0; padding:9px 12px; font-size:11px; }
   .step { display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; }
   #micBtn { font-size:15px; padding:16px 28px; }
   footer { margin-top:36px; font-size:11px; color:var(--dim); max-width:560px; line-height:1.6; text-align:center; }
+
+  /* immersive: while a piece is being made, everything retreats and only the surface remains */
+  .layout, header { transition: grid-template-columns .9s cubic-bezier(.6,0,.2,1), gap .9s, opacity .6s; }
+  .side, header { transition: opacity .6s; }
+  .stage { transition: width .9s cubic-bezier(.6,0,.2,1); }
+  body.immersive { padding-top:20px; }
+  body.immersive header { opacity:0; pointer-events:none; height:0; margin:0; overflow:hidden; }
+  body.immersive .layout { grid-template-columns:0 1fr 0; gap:0; }
+  body.immersive .side { opacity:0; pointer-events:none; overflow:hidden; }
+  body.immersive .stage { width:min(calc(100vw - 40px), calc((100vh - 40px) * var(--ar, .8))); }
+  .imx { position:fixed; z-index:30; font:11px/1 ui-monospace, Menlo, monospace; letter-spacing:.12em; text-transform:uppercase; background:transparent; border:1px solid rgba(0,0,0,.18); color:rgba(0,0,0,.45); padding:9px 12px; cursor:pointer; opacity:0; pointer-events:none; transition:opacity .6s, color .2s, border-color .2s; }
+  .imx:hover { color:#000; border-color:#000; }
+  #imFinish { right:18px; bottom:18px; }
+  #zoomOut { left:50%; bottom:18px; transform:translateX(-50%); color:rgba(0,0,0,.7); border-color:rgba(0,0,0,.4); background:rgba(255,255,255,.6); }
+  body.immersive.im-live #imFinish { opacity:.55; pointer-events:auto; }
+  body.immersive.im-done #zoomOut { opacity:1; pointer-events:auto; }
 </style>
 </head>
 <body>
@@ -267,6 +297,8 @@
 <div class="sign"><span class="lbl" id="signNote"></span><input id="nameAfter" type="text" maxlength="40" autocomplete="off" placeholder="Your name"></div>
 </aside>
 </main>
+<button class="imx" id="imFinish" title="or press Enter">finished ⏎</button>
+<button class="imx" id="zoomOut" title="or scroll out / press Esc">step back ↘</button>
 
 <div class="studio" id="studio">
   <div class="panel">
@@ -299,11 +331,25 @@
   </div>
 </div>
 
+<div class="gallery" id="gallery">
+  <div id="galCanvas"></div>
+  <div class="galbar"><div><div class="galtitle">The Gallery</div><div class="lbl" id="galCount"></div></div><span style="flex:1"></span><button class="ghost" id="galList">List view</button><button class="ghost" id="galClose">Close</button></div>
+  <div class="galnote" id="galNote"></div>
+  <div class="galwalk"><button id="galLeft" aria-label="turn left">↺</button><button id="galFwd" aria-label="walk forward">↑</button><button id="galBack" aria-label="walk back">↓</button><button id="galRight" aria-label="turn right">↻</button></div>
+  <div class="galtip" id="galTip"></div>
+  <div class="galcard" id="galCard">
+    <img id="galImg" alt="">
+    <h3 id="galTitle"></h3>
+    <p class="note" id="galMeta" style="white-space:pre-line"></p>
+    <div class="row" style="justify-content:flex-start"><button id="galRemix">Remix this</button><button class="ghost" id="galDownload">Download image</button><button class="ghost" id="galVideo">Download video</button><button class="ghost" id="galCardClose">Close</button></div>
+  </div>
+</div>
+
 <div class="archive" id="archive">
   <div class="panel">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2>Archive</h2><span class="lbl" id="archMeta"></span></div>
     <div id="archList">
-      <div class="row" style="justify-content:flex-start;margin-bottom:12px"><button class="ghost seg" id="archTonight">Tonight</button><button class="ghost seg" id="archAll">Everything</button></div>
+      <div class="row" style="justify-content:flex-start;margin-bottom:12px"><button class="ghost seg" id="archTonight">Tonight</button><button class="ghost seg" id="archAll">Everything</button><button id="archWalk">Walk the gallery →</button></div>
       <p class="note" style="margin-bottom:12px">Every piece made on this device. Tap one to download it, or remix it: start from that exact piece and add your own voice on top.</p>
       <div class="wallgrid" id="archGrid"></div>
     </div>
@@ -321,11 +367,12 @@
 </div>
 
 
-<script src="js/sources.js?v=3eb1ebba"></script>
-<script src="js/params.js?v=3eb1ebba"></script>
-<script src="js/paint.js?v=3eb1ebba"></script>
-<script src="js/engine.js?v=3eb1ebba"></script>
-<script src="js/audio.js?v=3eb1ebba"></script>
-<script src="js/ui.js?v=3eb1ebba"></script>
+<script src="js/sources.js?v=2c4186bf"></script>
+<script src="js/params.js?v=2c4186bf"></script>
+<script src="js/paint.js?v=2c4186bf"></script>
+<script src="js/engine.js?v=2c4186bf"></script>
+<script src="js/audio.js?v=2c4186bf"></script>
+<script src="js/gallery.js?v=2c4186bf"></script>
+<script src="js/ui.js?v=2c4186bf"></script>
 </body>
 </html>
