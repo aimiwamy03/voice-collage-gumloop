@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your painting · affective painting</title>
+<style>
+  :root { --ink:#1a1514; --blush:#f2cdd0; }
+  * { box-sizing:border-box; margin:0; }
+  body { min-height:100vh; background: radial-gradient(ellipse 90% 60% at 50% 30%, #b9ada8, #9d918c); color:var(--ink); font:15px/1.45 Georgia, 'Times New Roman', serif; display:flex; flex-direction:column; align-items:center; padding:28px 18px calc(28px + env(safe-area-inset-bottom)); gap:18px; }
+  .mono { font:11px/1.4 ui-monospace, Menlo, monospace; letter-spacing:.14em; text-transform:uppercase; }
+  .frame { width:min(100%, 560px); background:var(--blush); padding:14px; box-shadow:0 20px 50px rgba(60,30,30,.25), inset 0 14px 30px rgba(120,60,70,.12); }
+  .frame img { width:100%; display:block; background:#eee; -webkit-touch-callout:default; }
+  h1 { font-weight:normal; font-style:italic; font-size:30px; line-height:1.1; text-align:center; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  a.btn, button { font:12px/1 ui-monospace, Menlo, monospace; letter-spacing:.12em; text-transform:uppercase; padding:15px 20px; border:1px solid var(--ink); background:var(--ink); color:#f4f1ea; text-decoration:none; cursor:pointer; }
+  a.ghost { background:transparent; color:var(--ink); }
+  .hint { color:#3d3532; text-align:center; max-width:420px; }
+</style>
+</head>
+<body>
+  <div class="mono" id="kicker">affective painting</div>
+  <h1 id="title">Your painting</h1>
+  <div class="frame"><img id="img" alt="Your painting"></div>
+  <p class="hint">On iPhone: press and hold the image, then “Save to Photos”. Or use the button.</p>
+  <div class="row"><button id="save">Save image</button><a class="btn ghost" href="https://rienespecial.com">More of Aimi’s work ↗</a></div>
+  <p class="mono" style="opacity:.7;text-align:center">Gumloop × Linear Design Gallery · San Francisco · 2026</p>
+<script src="js/share-config.js"></script>
+<script>
+  const q = new URLSearchParams(location.search), path = q.get('p') || '';
+  const ok = /^[0-9]{3}-[a-z0-9]{3,12}\.jpg$/.test(path) && SHARE.url;
+  const src = ok ? `${SHARE.url}/storage/v1/object/public/${SHARE.bucket}/${path}` : '', no = path.slice(0, 3);
+  if (ok) document.getElementById('img').src = src + '?t=' + Date.now();
+  else document.getElementById('title').textContent = 'This link has no painting in it.';
+  if (ok) document.getElementById('kicker').textContent = `No. ${no} · affective painting`;
+  document.getElementById('save').onclick = async () => {
+    try {
+      const b = await (await fetch(src)).blob(), name = `affective-painting-${String(no || '').padStart(3, '0')}.jpg`, f = new File([b], name, { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: 'My painting' }); return; }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click();
+    } catch (e) { window.open(src, '_blank'); }
+  };
+</script>
+</body>
+</html>

@@ -124,6 +124,11 @@
   /* studio */
   .panel, .galcard { position:relative; }
   .galcard { position:absolute; }
+  .takehome { position:absolute; right:14px; bottom:14px; z-index:4; display:none; flex-direction:column; align-items:center; gap:6px; background:#fff; padding:10px 10px 8px; box-shadow:0 10px 30px rgba(0,0,0,.22); }
+  .takehome.show { display:flex; animation: takeIn .6s cubic-bezier(.2,.8,.2,1); }
+  .takehome canvas { width:132px; height:132px; image-rendering:pixelated; display:block; }
+  .takehome span { font:11px/1 'IBM Plex Mono', monospace; letter-spacing:.1em; text-transform:uppercase; color:#151412; }
+  @keyframes takeIn { from { opacity:0; transform:translateY(12px) scale(.96); } to { opacity:1; transform:none; } }
   .xclose { position:absolute; top:6px; right:6px; z-index:2; width:38px; height:38px; min-width:0; padding:0; border:none; background:transparent; color:#151412; font-family:'IBM Plex Mono', monospace; font-size:30px !important; font-weight:300; line-height:1; letter-spacing:0; cursor:pointer; }
   .xclose:hover { background:rgba(0,0,0,.07); }
   .panel > .xclose + div { padding-right:44px; }
@@ -264,6 +269,7 @@
   <canvas id="cv" width="1200" height="1500"></canvas>
   <div class="countdown" id="countdown"></div>
   <canvas id="crystal" width="900" height="900"></canvas>
+  <div class="takehome" id="takeHome"><canvas id="takeQR" width="264" height="264"></canvas><span id="takeNote">scan to take it home</span></div>
   <div class="qbanner" id="qBanner"></div>
   <div class="view3d" id="view3d">
     <div id="view3dCanvas"></div>
@@ -414,12 +420,15 @@
 </div>
 
 
-<script src="js/sources.js?v=bd01b7c5"></script>
-<script src="js/params.js?v=bd01b7c5"></script>
-<script src="js/paint.js?v=bd01b7c5"></script>
-<script src="js/engine.js?v=bd01b7c5"></script>
-<script src="js/audio.js?v=bd01b7c5"></script>
-<script src="js/gallery.js?v=bd01b7c5"></script>
-<script src="js/ui.js?v=bd01b7c5"></script>
+<script src="js/sources.js?v=128fdc02"></script>
+<script src="js/params.js?v=128fdc02"></script>
+<script src="js/paint.js?v=128fdc02"></script>
+<script src="js/engine.js?v=128fdc02"></script>
+<script src="js/audio.js?v=128fdc02"></script>
+<script src="js/gallery.js?v=128fdc02"></script>
+<script src="js/vendor/qrcode.js"></script>
+<script src="js/share-config.js"></script>
+<script src="js/share.js?v=128fdc02"></script>
+<script src="js/ui.js?v=128fdc02"></script>
 </body>
 </html>

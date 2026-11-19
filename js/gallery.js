@@ -186,9 +186,12 @@ async function openGallery(focusNewest) {
   {
     const mural = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshStandardMaterial({ color: '#ffffff', roughness: .95 }));
     mural.position.set(0, G.H / 2, -G.L + .03); mural.receiveShadow = true; scene.add(mural);
-    new T.TextureLoader().load(new URL('media/metro__05-action.jpg', location.href).href, tx => {
-      tx.colorSpace = T.SRGBColorSpace; tx.anisotropy = 8; mural.material.map = tx; mural.material.needsUpdate = true;
-      const h = G.H - .6, w = Math.min(G.W - .4, h * tx.image.width / tx.image.height); mural.scale.set(w, h, 1);
+    mural.scale.set(G.W - .02, G.H - .02, 1); // wall to wall, floor to ceiling
+    new T.TextureLoader().load(new URL('media/hero-trails.jpg', location.href).href, tx => { // the photo from the front page of rienespecial.com
+      tx.colorSpace = T.SRGBColorSpace; tx.anisotropy = 8;
+      const wallAr = G.W / G.H, imgAr = tx.image.width / tx.image.height; // cover-fit: crop rather than letterbox
+      if (imgAr > wallAr) { tx.repeat.set(wallAr / imgAr, 1); tx.offset.set((1 - wallAr / imgAr) / 2, 0); } else { tx.repeat.set(1, imgAr / wallAr); tx.offset.set(0, (1 - imgAr / wallAr) / 2); }
+      mural.material.map = tx; mural.material.needsUpdate = true;
     });
     // the door: a small glowing disc with a label at eye height
     const spot = new T.Group(); spot.position.set(-4.2, 1.55, -G.L + .08); spot.scale.setScalar(1.4);

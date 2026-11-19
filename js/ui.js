@@ -248,6 +248,7 @@ async function afterCollage() {
   $('signNote').textContent = artistName ? `Signed “${artistName}” — saved to the archive.` : 'Saved to the archive. Sign it with your name:';
   $('nameAfter').value = artistName;
   try { await saveWork(); } catch (e) { $('signNote').textContent = 'Couldn’t save to the archive on this device.'; }
+  toBlob(finalCanvas).then(b => shareFinished(b, collageNo, artistName, true));
   try { localStorage.setItem('vc_no', String(collageNo + 1)); } catch (e) {}
   if (P.autoSculpture) open3D();
 }
@@ -264,6 +265,7 @@ $('videoBtn').onclick = () => { if (videoBlob) shareOrDownload(videoBlob, fileBa
 $('listenBtn').onclick = () => { listenMode = !listenMode; $('listenBtn').classList.toggle('on', listenMode); $('stage').classList.toggle('listening', listenMode); setStatus(listenMode ? 'Tap any piece to hear the moment that tore it.' : 'Done. Save it, listen back, or open it in 3D.'); };
 $('sculptBtn').onclick = () => open3D();
 function resetToIdle(resetParams) {
+  shareHide();
   document.body.classList.remove('immersive', 'im-live', 'im-done');
   if (state === 'done' || state === 'idle') { if (state === 'done') { collageNo++; } }
   $('noLabel').textContent = 'No. ' + pad3(collageNo); close3D(); listenMode = false; $('listenBtn').classList.remove('on'); $('stage').classList.remove('listening');
@@ -286,7 +288,7 @@ function pieceAt(px, py) {
 let drag = null, smear = null, arrangeTimer = null;
 function arranged() { // keep the saved image in step with the new arrangement
   clearTimeout(arrangeTimer);
-  arrangeTimer = setTimeout(async () => { finalCanvas = exportCanvas(); if (currentWorkId) { try { await updateWork(currentWorkId, { img: await toBlob(finalCanvas), thumb: thumbOf(finalCanvas) }); } catch (e) {} } }, 600);
+  arrangeTimer = setTimeout(async () => { finalCanvas = exportCanvas(); toBlob(finalCanvas).then(b => shareChanged(b, collageNo, artistName)); if (currentWorkId) { try { await updateWork(currentWorkId, { img: await toBlob(finalCanvas), thumb: thumbOf(finalCanvas) }); } catch (e) {} } }, 600);
 }
 cv.addEventListener('pointerdown', ev => {
   if (state !== 'done' || listenMode) return;
@@ -383,6 +385,7 @@ function setArtistName(v, fromAfter) {
     nameTimer = setTimeout(async () => {
       redrawCaption(); render(); finalCanvas = exportCanvas();
       if (currentWorkId) { try { await updateWork(currentWorkId, { name: artistName, img: await toBlob(finalCanvas), thumb: thumbOf(finalCanvas) }); } catch (e) {} }
+      if (sharePath) toBlob(finalCanvas).then(b => shareChanged(b, collageNo, artistName));
       $('signNote').textContent = artistName ? `Signed — saved to the archive as “${artistName}”.` : 'Unsigned.';
     }, 500);
   }
