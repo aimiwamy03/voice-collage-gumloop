@@ -28,8 +28,8 @@
 <script src="js/share-config.js"></script>
 <script>
   const q = new URLSearchParams(location.search), path = q.get('p') || '';
-  const ok = /^[0-9]{3}-[a-z0-9]{3,12}\.jpg$/.test(path) && SHARE.url;
-  const src = ok ? `${SHARE.url}/storage/v1/object/public/${SHARE.bucket}/${path}` : '', no = path.slice(0, 3);
+  const ok = /^qr-uploads\/[0-9]{3}-[0-9]+-[a-z0-9]{3,12}\.jpg$/.test(path) && SHARE.url;
+  const src = ok ? `${SHARE.url}/storage/v1/object/public/${SHARE.bucket}/${path}` : '', no = path.split('/')[1]?.slice(0, 3) || '';
   if (ok) document.getElementById('img').src = src + '?t=' + Date.now();
   else document.getElementById('title').textContent = 'This link has no painting in it.';
   if (ok) document.getElementById('kicker').textContent = `No. ${no} · affective painting`;

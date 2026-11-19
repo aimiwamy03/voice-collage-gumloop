@@ -7,7 +7,7 @@ async function uploadPiece(blob) {
   if (!shareReady() || !blob) return null;
   const res = await fetch(`${SHARE.url}/storage/v1/object/${SHARE.bucket}/${sharePath}`, {
     method: 'POST', body: blob,
-    headers: { apikey: SHARE.key, Authorization: 'Bearer ' + SHARE.key, 'Content-Type': 'image/jpeg', 'x-upsert': 'true', 'cache-control': '30' },
+    headers: { apikey: SHARE.key, Authorization: 'Bearer ' + SHARE.key, 'Content-Type': 'image/jpeg', 'x-upsert': 'false', 'cache-control': '30' },
   });
   if (!res.ok) throw new Error('upload ' + res.status);
   return `${SHARE.url}/storage/v1/object/public/${SHARE.bucket}/${sharePath}`;
@@ -25,7 +25,7 @@ function drawQR(canvas, text) {
 async function shareFinished(blob, no, name, fresh) {
   const box = $('takeHome');
   if (!shareReady()) { box.classList.remove('show'); return; }
-  if (fresh) { box.classList.remove('open'); sharePath = `${String(no).padStart(3, '0')}-${Math.random().toString(36).slice(2, 8)}.jpg`; box.classList.remove('show'); $('takeNote').textContent = 'preparing…'; }
+  if (fresh) { box.classList.remove('open'); sharePath = `qr-uploads/${String(no).padStart(3, '0')}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`; box.classList.remove('show'); $('takeNote').textContent = 'preparing…'; }
   try {
     const pub = await uploadPiece(blob); if (!pub) return;
     drawQR($('takeQR'), takeLink());
