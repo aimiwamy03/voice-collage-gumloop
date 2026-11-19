@@ -181,7 +181,31 @@ async function openGallery(focusNewest) {
   };
   document.querySelectorAll('#galMood button').forEach(b => b.onclick = () => setMood(b.dataset.l));
   $('galReset').onclick = () => { const to = new T.Vector3(0, G.EYE, 3.6); glide = { from: pos.clone(), to, yawFrom: yaw, yawTo: 0, pitchTo: .02, t0: performance.now(), dur: 1400 }; }; // back to standing at the door, eyes level
-  const stepMood = now => { // lights move with you through the hall
+  // ---------- the far wall: one of Aimi's drawings, painted floor to ceiling, with a door to her site ----------
+  const links = [];
+  {
+    const mural = new T.Mesh(new T.PlaneGeometry(1, 1), new T.MeshStandardMaterial({ color: '#ffffff', roughness: .95 }));
+    mural.position.set(0, G.H / 2, -G.L + .03); mural.receiveShadow = true; scene.add(mural);
+    new T.TextureLoader().load(new URL('media/metro__05-action.jpg', location.href).href, tx => {
+      tx.colorSpace = T.SRGBColorSpace; tx.anisotropy = 8; mural.material.map = tx; mural.material.needsUpdate = true;
+      const h = G.H - .6, w = Math.min(G.W - .4, h * tx.image.width / tx.image.height); mural.scale.set(w, h, 1);
+    });
+    // the door: a small glowing disc with a label at eye height
+    const spot = new T.Group(); spot.position.set(-4.2, 1.55, -G.L + .08); spot.scale.setScalar(1.4);
+    const disc = new T.Mesh(new T.CircleGeometry(.2, 48), new T.MeshBasicMaterial({ color: '#151412' }));
+    const halo = new T.Mesh(new T.RingGeometry(.24, .29, 64), new T.MeshBasicMaterial({ color: '#c0262d', transparent: true, opacity: .8 }));
+    const arrow = mk(256, 256), ag = arrow.getContext('2d'); ag.fillStyle = '#f4f1ea'; ag.font = '600 170px "IBM Plex Mono", monospace'; ag.textAlign = 'center'; ag.textBaseline = 'middle'; ag.fillText('↗', 128, 136);
+    const arrowM = new T.Mesh(new T.PlaneGeometry(.3, .3), new T.MeshBasicMaterial({ map: new T.CanvasTexture(arrow), transparent: true })); arrowM.position.z = .005;
+    const lab = mk(1024, 160), lg = lab.getContext('2d'); lg.fillStyle = 'rgba(244,241,234,.92)'; lg.fillRect(0, 0, 1024, 160);
+    lg.fillStyle = '#151412'; lg.font = '500 68px "IBM Plex Mono", monospace'; lg.textBaseline = 'middle'; lg.fillText('rienespecial.com', 34, 82);
+    const lt = new T.CanvasTexture(lab); lt.colorSpace = T.SRGBColorSpace;
+    const label = new T.Mesh(new T.PlaneGeometry(1.6, .25), new T.MeshBasicMaterial({ map: lt })); label.position.set(1.18, 0, 0);
+    spot.add(disc, halo, arrowM, label); scene.add(spot);
+    for (const o of [disc, halo, arrowM, label]) { o.userData.link = 'https://rienespecial.com'; links.push(o); }
+    spot.userData.halo = halo; window.__galSpot = spot;
+  }
+  const stepMood = now => {
+    { const h = window.__galSpot && window.__galSpot.userData.halo; if (h) { const k = (now / 1400) % 1; h.scale.setScalar(1 + k * .6); h.material.opacity = .8 * (1 - k); } } // lights move with you through the hall
     if (!party.visible) return;
     const cz = pos.z - 9, t = now / 1000, fast = mood === 'disco' ? 1.8 : 1;
     partyLights.forEach((l, i) => { const a = t * .9 * fast + l.userData.phase; l.position.set(Math.cos(a) * (G.W / 2 - 2), 2.2 + Math.sin(a * 1.7) * 1.5, cz + Math.sin(a * .8) * 7); });
@@ -206,8 +230,9 @@ async function openGallery(focusNewest) {
   const imgs = await Promise.all(works.map(w => loader(w.thumb)));
   // walls as strips to pack: [name, length, start offset]
   // each wall packs its own salon cluster; works are dealt round-robin so every wall fills as the archive grows
-  const strips = [{ wall: 'end', len: G.W - 3, rows: 6 }, { wall: 'left', len: G.L - 9, rows: 3 }, { wall: 'right', len: G.L - 9, rows: 3 }]
-    .map(st => ({ ...st, cursor: 0, row: 0, full: false }));
+  // the end wall belongs to the mural, so the pieces hang on the two long walls
+  const strips = [{ wall: 'end', len: G.W - 3, rows: 0 }, { wall: 'left', len: G.L - 9, rows: 4 }, { wall: 'right', len: G.L - 9, rows: 4 }]
+    .map(st => ({ ...st, cursor: 0, row: 0, full: st.rows === 0 }));
   const ROW_Y = [1.15, 2.4, 3.65, 4.9, 6.15, 7.4], GAP = .16;
   let deal = 0;
   const place = (pw) => {
@@ -277,16 +302,19 @@ async function openGallery(focusNewest) {
   }
   // hover & click
   const ray = new T.Raycaster(), ndc = new T.Vector2();
-  const pick = e => { const r = el.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, cam); const hit = ray.intersectObjects([...art, ...people], true)[0]; return hit && hit.object.userData.work ? hit : null; };
+  const pick = e => { const r = el.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, cam); const hit = ray.intersectObjects([...art, ...people, ...links], true)[0]; return hit && (hit.object.userData.work || hit.object.userData.link) ? hit : null; };
   function hover(e) {
     const hit = pick(e), tip = $('galTip');
     if (!hit) { tip.style.display = 'none'; el.style.cursor = dragging ? 'grabbing' : 'grab'; return; }
-    const w = hit.object.userData.work; el.style.cursor = 'pointer';
+    el.style.cursor = 'pointer';
+    if (hit.object.userData.link) { tip.innerHTML = '<b>Visit Aimi’s site ↗</b><span>rienespecial.com · opens in a new tab</span>'; tip.style.display = 'flex'; tip.style.left = (e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 12) + 'px'; return; }
+    const w = hit.object.userData.work;
     tip.innerHTML = `<b>No. ${pad3(w.no)}${w.name ? ' — ' + escapeHtml(w.name) : ''}</b>${w.question ? `<span>“${escapeHtml(w.question)}”</span>` : ''}<span>${w.mode === 'paint' ? 'paint' : 'collage'} · ${new Date(w.at).toLocaleDateString()}</span>`;
     tip.style.display = 'flex'; tip.style.left = (e.clientX + 16) + 'px'; tip.style.top = (e.clientY + 12) + 'px';
   }
   function click(e) {
     const hit = pick(e); if (!hit) return;
+    if (hit.object.userData.link) { window.open(hit.object.userData.link, '_blank', 'noopener'); return; }
     const w = hit.object.userData.work, a = art.find(m => m.userData.work === w);
     if (a) { // walk up to the piece
       const n = new T.Vector3(0, 0, 1).applyQuaternion(a.quaternion).setY(0).normalize(), to = a.position.clone().addScaledVector(n, 2.6).setY(G.EYE);
@@ -374,13 +402,16 @@ async function openRelief(full) {
   const bmp = await createImageBitmap(full.img), s = Math.min(1, 900 / Math.max(bmp.width, bmp.height));
   const w = Math.round(bmp.width * s), h = Math.round(bmp.height * s), c = mk(w, h), g = c.getContext('2d'); g.drawImage(bmp, 0, 0, w, h);
   const px = g.getImageData(0, 0, w, h).data;
-  // height = how far a pixel is from the ground colour (sampled in the corners), softened, plus a little texture
-  const corner = [[2, 2], [w - 3, 2], [2, h - 3], [w - 3, h - 3]].map(([x, y]) => { const i = (y * w + x) * 4; return [px[i], px[i + 1], px[i + 2]]; });
-  const bg = [0, 1, 2].map(k => corner.map(c2 => c2[k]).sort((a, b) => a - b)[1]);
+  // height = how far a pixel is from the ground colour. The ground is the most common colour in the piece
+  // (not the corners, which are often a border), so words, scraps and marks stand proud of the paper.
+  const bins = new Map();
+  for (let i = 0; i < w * h; i += 3) { const r = px[i * 4], gg = px[i * 4 + 1], b = px[i * 4 + 2], key = (r >> 4) << 8 | (gg >> 4) << 4 | (b >> 4); const e = bins.get(key) || [0, 0, 0, 0]; e[0]++; e[1] += r; e[2] += gg; e[3] += b; bins.set(key, e); }
+  let top = null; for (const e of bins.values()) if (!top || e[0] > top[0]) top = e;
+  const bg = [top[1] / top[0], top[2] / top[0], top[3] / top[0]];
   const hc = mk(w, h), hg = hc.getContext('2d'), hd = hg.createImageData(w, h);
   for (let i = 0; i < w * h; i++) {
     const r = px[i * 4], gg = px[i * 4 + 1], b = px[i * 4 + 2], dist = Math.hypot(r - bg[0], gg - bg[1], b - bg[2]) / 1.6, lum = (r * .3 + gg * .59 + b * .11);
-    const v = clamp(dist * .85 + (255 - lum) * .12, 0, 255); hd.data[i * 4] = hd.data[i * 4 + 1] = hd.data[i * 4 + 2] = v; hd.data[i * 4 + 3] = 255;
+    const v = clamp(dist * .95, 0, 255); hd.data[i * 4] = hd.data[i * 4 + 1] = hd.data[i * 4 + 2] = v; hd.data[i * 4 + 3] = 255;
   }
   hg.putImageData(hd, 0, 0);
   const soft = mk(w, h), sg = soft.getContext('2d'); sg.filter = 'blur(1.6px)'; sg.drawImage(hc, 0, 0); const H = sg.getImageData(0, 0, w, h).data;
