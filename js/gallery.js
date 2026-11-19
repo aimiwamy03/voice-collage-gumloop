@@ -48,7 +48,7 @@ async function loadSculpture(T) {
   try {
     const base = new URL('js/vendor/', location.href).href;
     const [{ MarchingCubes }, { buildSculpture }] = await Promise.all([import(base + 'MarchingCubes.js'), import(new URL('js/sculpture.js', location.href).href)]);
-    sculptCache = buildSculpture(T, MarchingCubes);
+    sculptCache = buildSculpture(T, MarchingCubes, 'bubbles');
   } catch (e) { console.warn('sculpture failed', e); sculptCache = null; }
   return sculptCache;
 }

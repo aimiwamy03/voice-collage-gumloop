@@ -2,13 +2,13 @@
 import * as T from '../js/vendor/three.module.min.js';
 import { MarchingCubes } from '../js/vendor/MarchingCubes.js';
 import { buildSculpture } from '../js/sculpture.js';
-const r = new T.WebGLRenderer({ antialias: true }); r.setSize(900, 900); document.body.appendChild(r.domElement);
+const r = new T.WebGLRenderer({ antialias: true }); r.setSize(700, 700); document.body.appendChild(r.domElement);
 r.shadowMap.enabled = true; r.toneMapping = T.NeutralToneMapping; r.outputColorSpace = T.SRGBColorSpace;
 const sc = new T.Scene(); sc.background = new T.Color('#e9e6e0');
 sc.add(new T.HemisphereLight(0xffffff, 0xd8d2c6, 2));
 const d = new T.DirectionalLight(0xffffff, 2.2); d.position.set(3, 6, 4); d.castShadow = true; sc.add(d);
 const g = new T.Mesh(new T.PlaneGeometry(20, 20), new T.MeshStandardMaterial({ color: '#d8d3ca' })); g.rotation.x = -Math.PI / 2; g.receiveShadow = true; sc.add(g);
-const s = buildSculpture(T, MarchingCubes); s.rotation.y = +(new URLSearchParams(location.search).get('ry') || 0); sc.add(s);
+const s = buildSculpture(T, MarchingCubes, new URLSearchParams(location.search).get('v') || 'arch'); s.rotation.y = +(new URLSearchParams(location.search).get('ry') || 0); sc.add(s);
 const box = new T.Box3().setFromObject(s); window.box = [box.min.toArray(), box.max.toArray()];
 const cam = new T.PerspectiveCamera(35, 1, .1, 100); cam.position.set(0, 2, 7.5); cam.lookAt(0, 1.6, 0);
 r.render(sc, cam); window.done = true;
