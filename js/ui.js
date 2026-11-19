@@ -206,6 +206,7 @@ function nextQuestion() {
   currentQuestion = QUESTIONS[qOrder.pop()]; showQuestion();
 }
 function showQuestion() {
+  requestAnimationFrame(fitIntro);
   const on = P.askQuestion && currentQuestion;
   $('qBox').style.display = on ? '' : 'none';
   $('qText').textContent = currentQuestion;
@@ -215,10 +216,11 @@ function showQuestion() {
 $('qNext').onclick = () => nextQuestion();
 // two steps: reflect on the question (nothing recording), then press to begin
 function showStep(n) {
+  requestAnimationFrame(fitIntro);
   $('step1').style.display = n === 1 ? '' : 'none'; $('step2').style.display = n === 2 ? '' : 'none';
   const on = P.askQuestion && currentQuestion;
   $('q2Label').style.display = on ? '' : 'none'; $('qText2').textContent = on ? currentQuestion : '';
-  if (state === 'idle') setStatus(n === 1 ? (on ? 'Read the question. Take your time — nothing is recording.' : 'Choose a mode, then press “I’m ready”.') : (P.mode === 'paint' ? 'Press “Paint” when you’re ready to speak.' : 'Press “Start tearing” when you’re ready to speak.'));
+  if (state === 'idle') setStatus(n === 1 ? (on ? 'Nothing is recording yet.' : 'Choose a mode, then press “I’m ready”.') : 'Press the button and speak.');
 }
 $('readyBtn').onclick = () => showStep(2);
 $('backBtn').onclick = () => showStep(1);
@@ -591,3 +593,19 @@ window.addEventListener('wheel', e => { // a scroll outward, off the canvas, ste
   if (state !== 'done' || !document.body.classList.contains('immersive') || e.deltaY <= 0) return;
   if ($('stage').contains(e.target)) return; zoomOut();
 }, { passive: true });
+
+// ---------- the intro card always fits its box: scale the visible step down instead of cropping ----------
+function fitIntro() {
+  const o = $('intro'); if (!o) return;
+  const cs = getComputedStyle(o), availH = o.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom), availW = o.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  for (const st of [$('step1'), $('step2')]) {
+    if (st.style.display === 'none') continue;
+    st.style.transform = ''; st.style.width = '';
+    const h = st.scrollHeight, k = Math.min(1, availH / h, availW / st.scrollWidth);
+    if (k < 1) { st.style.width = (100 / k) + '%'; const h2 = st.scrollHeight; const k2 = Math.min(1, availH / h2, availW / st.offsetWidth); st.style.transform = `scale(${k2})`; st.style.margin = `${(availH - h2) / 2}px 0`; }
+    else st.style.margin = '';
+  }
+}
+new ResizeObserver(() => fitIntro()).observe($('intro'));
+window.addEventListener('resize', fitIntro);
+['qNext', 'keyToggle', 'modeCollage', 'modePaint'].forEach(id => $(id) && $(id).addEventListener('click', () => requestAnimationFrame(fitIntro)));

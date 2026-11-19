@@ -281,7 +281,7 @@ async function startMic() {
   try {
     await ensureAudio();
     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: false } });
-  } catch (e) { $('msg').textContent = 'The microphone isn’t available. Allow mic access in the browser, or use a voice recording.'; return; }
+  } catch (e) { $('msg').textContent = 'The microphone isn’t available. Allow mic access in the browser and try again.'; return; }
   srcNode = audioCtx.createMediaStreamSource(mediaStream); srcNode.connect(analyser); srcNode.connect(recDest);
   await dgStart(srcNode);
   sessionMs = sessionLength();

@@ -44,7 +44,15 @@
   .stage.listening canvas#cv { cursor:pointer; }
   .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:28px; gap:14px; background:rgba(244,241,234,.93); transition:opacity .4s; z-index:2; }
   .overlay.hidden { opacity:0; pointer-events:none; }
-  .overlay { overflow-y:auto; justify-content:safe center; }
+  .overlay { overflow:hidden; justify-content:safe center; }
+  .overlay .step { transform-origin:50% 50%; flex-shrink:0; }
+  .overlay.qon #introSub { display:none; }
+  #betaDot { position:fixed; left:10px; bottom:8px; z-index:20; font-size:11px; color:rgba(0,0,0,.14); text-decoration:none; transition:color .2s; }
+  #betaDot:hover { color:rgba(0,0,0,.6); }
+  body.immersive #betaDot { display:none; }
+  .minilinks { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 18px; font-size:12px; }
+  .minilinks .link, .minilinks a { font-size:12px; color:inherit; }
+  .minilinks .keypanel { flex-basis:100%; }
   @media (max-width:520px) { .overlay.qon #introSub { display:none; } .overlay { padding:18px; gap:10px; } }
   .title { font-family:'Instrument Serif', serif; font-size:clamp(34px,8vw,52px); line-height:1.02; margin:0; }
   .title em { font-style:italic; }
@@ -205,7 +213,7 @@
 </style>
 </head>
 <body>
-<header><span>voice → collage · v4</span><span id="noLabel">No. 001</span></header>
+<header><span></span><span id="noLabel">No. 001</span></header>
 
 <main class="layout">
 <aside class="side left">
@@ -234,31 +242,28 @@
       <div class="lbl">A question to sit with</div>
       <p class="qtext" id="qText"></p>
       <button class="link" id="qNext">↻ another question</button>
-      <p class="qnote">Nothing is recording yet. Take a moment with it. Answer in any language, as much or as little as you like — there’s no wrong answer, or just say whatever comes.</p>
     </div>
     <p class="sub" id="introSub"></p>
-    <input class="namefield" id="nameIn" type="text" maxlength="40" autocomplete="off" placeholder="Your name (to sign it, optional)">
+    <input class="namefield" id="nameIn" hidden type="text" maxlength="40" autocomplete="off" placeholder="Your name (to sign it, optional)">
     <button id="readyBtn">I’m ready →</button>
-    <button class="link" id="openArchive">See everyone’s work →</button>
-    <a class="link" href="duet/" style="font-size:12px;color:inherit">Duet — two voices, one painting (experimental) →</a>
+    <div class="minilinks"><button class="link" id="openArchive">Everyone’s work</button>
     <button class="link" id="keyToggle">Words: off · add Deepgram key</button>
     <div class="keypanel" id="keyPanel">
       <input id="keyIn" type="password" autocomplete="off" placeholder="Paste your Deepgram API key">
       <div class="row"><button id="keySave">Save key</button><button class="ghost" id="keyClear">Remove</button></div>
-      <p class="sub" style="font-size:11px">Saved only in this browser on this device. It is never put in the page's code.</p>
-    </div>
+      <p class="sub" style="font-size:11px">Saved only in this browser.</p>
+    </div></div>
     </div>
     <div class="step" id="step2" style="display:none">
       <div class="lbl" id="q2Label">Your question</div>
       <p class="qtext" id="qText2"></p>
-      <p class="qnote" id="goNote">Press the button when you want to begin. Nothing records until you do. Speak as long as you like, then press Finish.</p>
+      <p class="qnote" id="goNote" hidden></p>
       <div class="row" style="flex-direction:column;align-items:center">
       <button id="micBtn">Use microphone</button>
-      <label class="btn ghost" for="fileIn">Use a voice recording</label>
-      <input id="fileIn" type="file" accept="audio/*,video/*">
+      <input id="fileIn" hidden type="file" accept="audio/*,video/*">
       <button id="playFile" style="display:none">Tear with <span id="fileName">recording</span></button>
     </div>
-      <button class="link" id="backBtn">← choose a different question</button>
+      <button class="link" id="backBtn">← back</button>
     </div>
     <p class="msg" id="msg"></p>
   </div>
@@ -298,6 +303,7 @@
 <div class="sign"><span class="lbl" id="signNote"></span><input id="nameAfter" type="text" maxlength="40" autocomplete="off" placeholder="Your name"></div>
 </aside>
 </main>
+<a id="betaDot" href="duet/" title="beta" aria-label="beta">◐</a>
 <button class="imx" id="imFinish" title="or press Enter">finished ⏎</button>
 <button class="imx" id="zoomOut" title="or scroll out / press Esc">step back ↘</button>
 
@@ -368,12 +374,12 @@
 </div>
 
 
-<script src="js/sources.js?v=6854eedd"></script>
-<script src="js/params.js?v=6854eedd"></script>
-<script src="js/paint.js?v=6854eedd"></script>
-<script src="js/engine.js?v=6854eedd"></script>
-<script src="js/audio.js?v=6854eedd"></script>
-<script src="js/gallery.js?v=6854eedd"></script>
-<script src="js/ui.js?v=6854eedd"></script>
+<script src="js/sources.js?v=c05b7400"></script>
+<script src="js/params.js?v=c05b7400"></script>
+<script src="js/paint.js?v=c05b7400"></script>
+<script src="js/engine.js?v=c05b7400"></script>
+<script src="js/audio.js?v=c05b7400"></script>
+<script src="js/gallery.js?v=c05b7400"></script>
+<script src="js/ui.js?v=c05b7400"></script>
 </body>
 </html>
