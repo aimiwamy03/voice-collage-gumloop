@@ -42,6 +42,16 @@ function makeFigure(T, rand, top) {
 }
 
 // a rigged, animated visitor (three.js example mannequin, Mixamo rig): proper anatomy, idle breathing, a real walk
+let sculptCache = null;
+async function loadSculpture(T) {
+  if (sculptCache) return sculptCache;
+  try {
+    const base = new URL('js/vendor/', location.href).href;
+    const [{ MarchingCubes }, { buildSculpture }] = await Promise.all([import(base + 'MarchingCubes.js'), import(new URL('js/sculpture.js', location.href).href)]);
+    sculptCache = buildSculpture(T, MarchingCubes);
+  } catch (e) { console.warn('sculpture failed', e); sculptCache = null; }
+  return sculptCache;
+}
 let rig = null, galPaused = false, relief = null, galWorld = null;
 async function loadRig() {
   if (rig !== null) return rig;
@@ -117,28 +127,8 @@ async function openGallery(focusNewest) {
     floorMat.map = ftex; floorMat.roughnessMap = rtex; floorMat.color.set('#ffffff'); floorMat.roughness = .55; floorMat.needsUpdate = true;
   }
 
-  // ---------- the centrepiece: one organic plaster form on a low plinth, mid-hall ----------
-  {
-    const cz = -Math.min(G.L * .42, 18);
-    const geo = new T.SphereGeometry(1, 160, 120), pa = geo.attributes.position, v = new T.Vector3();
-    for (let i = 0; i < pa.count; i++) {
-      v.fromBufferAttribute(pa, i);
-      const n = Math.sin(v.x * 2.1 + v.y * 1.3) * .16 + Math.sin(v.y * 3.2 - v.z * 1.7) * .09 + Math.sin(v.z * 2.6 + v.x * .9 + v.y * 1.1) * .12;
-      const pinch = 1 - .32 * Math.exp(-Math.pow(v.y * 2.2 - .2, 2)); // a waist
-      v.multiplyScalar(1 + n); v.x *= pinch * 1.05; v.z *= pinch * .8; v.y *= 1.55;
-      const tw = v.y * .45, cx = v.x * Math.cos(tw) - v.z * Math.sin(tw), czz = v.x * Math.sin(tw) + v.z * Math.cos(tw); // a slow twist
-      pa.setXYZ(i, cx, v.y, czz);
-    }
-    geo.computeVertexNormals();
-    const plaster = new T.MeshStandardMaterial({ color: '#f1ede6', roughness: .62, metalness: 0 });
-    const form = new T.Mesh(geo, plaster); form.castShadow = form.receiveShadow = true;
-    const ring = new T.Mesh(new T.TorusGeometry(.62, .17, 48, 140), plaster); ring.castShadow = ring.receiveShadow = true;
-    ring.position.set(.95, .9, .25); ring.rotation.set(.5, .9, .3);
-    const plinth = new T.Mesh(new T.BoxGeometry(3, .32, 3), new T.MeshStandardMaterial({ color: '#e8e4dc', roughness: .9 }));
-    plinth.position.y = .16; plinth.castShadow = plinth.receiveShadow = true;
-    const sculpt = new T.Group(); form.position.y = .32 + 1.65; ring.position.y += .32 + 1.65;
-    sculpt.add(plinth, form, ring); sculpt.position.set(0, 0, cz); sculpt.rotation.y = .6; scene.add(sculpt);
-  }
+  // ---------- the centrepiece: glossy drooping forms with a cluster of red beads, mid-hall ----------
+  loadSculpture(T).then(sc => { if (!sc || !scene) return; const o = sc.clone(); o.position.set(0, 0, -Math.min(G.L * .42, 18)); o.rotation.y = .5; scene.add(o); });
   const wall = (w, h, x, y, z, ry) => { const m = new T.Mesh(new T.PlaneGeometry(w, h), wallMat); m.position.set(x, y, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m); return m; };
   wall(G.L + 10, G.H, -G.W / 2, G.H / 2, -G.L / 2 + 5, Math.PI / 2);
   wall(G.L + 10, G.H, G.W / 2, G.H / 2, -G.L / 2 + 5, -Math.PI / 2);
