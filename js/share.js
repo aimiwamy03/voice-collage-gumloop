@@ -25,7 +25,7 @@ function drawQR(canvas, text) {
 async function shareFinished(blob, no, name, fresh) {
   const box = $('takeHome');
   if (!shareReady()) { box.classList.remove('show'); return; }
-  if (fresh) { sharePath = `${String(no).padStart(3, '0')}-${Math.random().toString(36).slice(2, 8)}.jpg`; box.classList.remove('show'); $('takeNote').textContent = 'preparing…'; }
+  if (fresh) { box.classList.remove('open'); sharePath = `${String(no).padStart(3, '0')}-${Math.random().toString(36).slice(2, 8)}.jpg`; box.classList.remove('show'); $('takeNote').textContent = 'preparing…'; }
   try {
     const pub = await uploadPiece(blob); if (!pub) return;
     drawQR($('takeQR'), takeLink());
@@ -33,4 +33,6 @@ async function shareFinished(blob, no, name, fresh) {
   } catch (e) { console.warn(e); $('takeNote').textContent = 'offline — can’t make a link'; box.classList.add('show'); }
 }
 function shareChanged(blob, no, name) { clearTimeout(shareTimer); shareTimer = setTimeout(() => shareFinished(blob, no, name, false), 900); }
-function shareHide() { $('takeHome').classList.remove('show'); sharePath = null; }
+function shareHide() { $('takeHome').classList.remove('show', 'open'); sharePath = null; }
+$('takeBtn').onclick = e => { e.stopPropagation(); $('takeHome').classList.toggle('open'); };
+document.addEventListener('pointerdown', e => { if (!$('takeHome').contains(e.target)) $('takeHome').classList.remove('open'); });
