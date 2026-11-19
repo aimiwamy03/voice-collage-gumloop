@@ -336,7 +336,10 @@ function setRing(f) { // time left (or time so far, when open-ended): number, ba
   const left = Math.max(0, sessionMs / 1000 * (1 - clamp(f, 0, 1))), secs = Math.ceil(left);
   $('timeLeft').textContent = `0:${String(secs).padStart(2, '0')}`;
   $('timeFill').style.width = (100 * (1 - clamp(f, 0, 1))) + '%';
-  const cd = $('countdown'); cd.textContent = secs + 's';
+  const cd = $('countdown'), fin = state === 'listening' && left <= 10;
+  const txt = fin ? String(secs) : secs + 's';
+  if (cd.textContent !== txt) { cd.textContent = txt; if (fin) { cd.classList.remove('tick'); void cd.offsetWidth; cd.classList.add('tick'); } }
+  cd.classList.toggle('final', fin); cd.style.setProperty('--p', fin ? (left / 10).toFixed(3) : 1);
   cd.classList.toggle('show', state === 'listening'); cd.classList.toggle('low', state === 'listening' && secs <= 3);
 }
 function showIdleTime() { sessionMs = sessionLength(); setRing(0); $('countdown').classList.remove('show'); }
@@ -386,7 +389,7 @@ async function finish() {
   await drawCaption();
   await new Promise(r => setTimeout(r, 1300)); // hold the final frame in the video
   await stopVideoRecording();
-  state = 'done'; document.body.classList.remove('im-live'); if (document.body.classList.contains('immersive')) document.body.classList.add('im-done');
+  state = 'done'; crystallize(); document.body.classList.remove('im-live'); if (document.body.classList.contains('immersive')) document.body.classList.add('im-done');
   setStatus(P.mode === 'paint' ? 'Done. Drag on the canvas to smear the wet paint, listen back, or open it in 3D.' : 'Done. Drag any piece to move it (scroll to turn it), listen back, or open it in 3D.'); showLevel(0); if (!openEnded) setRing(1); $('countdown').classList.remove('show'); $('hud').classList.add('idle');
   await afterCollage();
 }
@@ -426,4 +429,47 @@ function redrawCaption() {
   g.fillStyle = '#141414'; g.textBaseline = 'middle';
   g.fillText(line1, -lw / 2 + 22, -16, lw - 44); g.fillStyle = '#4a4740'; g.fillText(line2, -lw / 2 + 22, 18, lw - 44);
   g.restore();
+}
+
+// ---------- the piece crystallises when it's done: faceted light sweeps across, then it sets ----------
+function crystallize() {
+  const c = $('crystal'); if (!c) return;
+  const r = c.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  c.width = Math.max(1, r.width * dpr); c.height = Math.max(1, r.height * dpr);
+  const g = c.getContext('2d'), W = c.width, H = c.height, cols = 11, rows = Math.max(6, Math.round(cols * H / W));
+  const pts = []; // a jittered lattice, triangulated: the facets
+  for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
+    const edge = i === 0 || j === 0 || i === cols || j === rows;
+    pts.push([(i + (edge ? 0 : (Math.random() - .5) * .8)) * W / cols, (j + (edge ? 0 : (Math.random() - .5) * .8)) * H / rows]);
+  }
+  const tris = [], P = (i, j) => pts[j * (cols + 1) + i];
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const a = P(i, j), b = P(i + 1, j), cc = P(i, j + 1), d = P(i + 1, j + 1), flip = Math.random() < .5;
+    for (const t of flip ? [[a, b, d], [a, d, cc]] : [[a, b, cc], [b, d, cc]]) {
+      const cx = (t[0][0] + t[1][0] + t[2][0]) / 3, cy = (t[0][1] + t[1][1] + t[2][1]) / 3;
+      tris.push({ t, delay: (cx / W * .6 + cy / H * .4) * 900 + Math.random() * 160, tone: Math.random() });
+    }
+  }
+  const t0 = performance.now(), DUR = 2600;
+  (function frame(now) {
+    const e = now - t0; g.clearRect(0, 0, W, H);
+    for (const f of tris) {
+      const k = (e - f.delay) / 900; if (k <= 0 || k >= 1) continue;
+      const a = Math.sin(k * Math.PI); // rise and fade
+      const [p0, p1, p2] = f.t, lg = g.createLinearGradient(p0[0], p0[1], p2[0], p2[1]);
+      const hue = 190 + f.tone * 70;
+      lg.addColorStop(0, `hsla(${hue},70%,92%,${.42 * a})`); lg.addColorStop(1, `hsla(${hue + 40},60%,80%,${.08 * a})`);
+      g.beginPath(); g.moveTo(...p0); g.lineTo(...p1); g.lineTo(...p2); g.closePath();
+      g.fillStyle = lg; g.fill(); g.strokeStyle = `rgba(255,255,255,${.55 * a})`; g.lineWidth = dpr; g.stroke();
+    }
+    // one glint travelling the diagonal
+    const s = clamp((e - 300) / 1700, 0, 1);
+    if (s > 0 && s < 1) {
+      const x = -W * .3 + s * W * 1.6, gl = g.createLinearGradient(x - 120 * dpr, 0, x + 120 * dpr, H * .4);
+      gl.addColorStop(0, 'rgba(255,255,255,0)'); gl.addColorStop(.5, `rgba(255,255,255,${.35 * Math.sin(s * Math.PI)})`); gl.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gl; g.fillRect(0, 0, W, H);
+    }
+    g.globalCompositeOperation = 'destination-in'; g.drawImage($('cv'), 0, 0, W, H); g.globalCompositeOperation = 'source-over'; // only on the piece itself
+    if (e < DUR) requestAnimationFrame(frame); else g.clearRect(0, 0, W, H);
+  })(t0);
 }

@@ -171,6 +171,7 @@ document.addEventListener('keydown', e => {
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
   if (e.key === 's' || e.key === 'S') $('studio').classList.contains('show') ? $('studio').classList.remove('show') : openStudio();
   if (e.key === 'w' || e.key === 'W') { if ($('gallery').classList.contains('show')) return; $('archive').classList.contains('show') ? $('archive').classList.remove('show') : openGallery(false); }
+  if (e.key === 'Escape' && $('relief').classList.contains('show')) { closeRelief(); return; }
   if (e.key === 'Escape') { $('studio').classList.remove('show'); $('archive').classList.remove('show'); close3D(); closeGallery(); }
 });
 
