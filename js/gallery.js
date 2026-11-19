@@ -149,7 +149,6 @@ async function openGallery(focusNewest) {
     party.visible = m === 'party' || m === 'disco'; disco.visible = m === 'disco';
     partyLights.forEach(l => l.intensity = m === 'party' ? 16 : m === 'disco' ? 8 : 0);
     discoSpots.forEach(sp => sp.intensity = m === 'disco' ? 900 : 0);
-    for (const f of people) if (f.userData.idle) f.userData.idle.timeScale = party.visible ? 2.2 : f.userData.baseScale || 1;
     $('gallery').classList.toggle('dark', M.dark);
     document.querySelectorAll('#galMood button').forEach(b => b.classList.toggle('on', b.dataset.l === m));
   };
@@ -301,8 +300,7 @@ async function openGallery(focusNewest) {
           delete u.walk; u.face(f, u.art.position.x, u.art.position.z);
           if (u.rig) { u.idle.reset().play(); u.walkAction.crossFadeTo(u.idle, .5, false); }
         }
-      } else if (party.visible) { const b = Math.abs(Math.sin(now / (mood === 'disco' ? 240 : 300) + (u.phase || 0))); f.position.y = b * .07; if (!u.rig) f.rotation.z = Math.sin(now / 300 + (u.phase || 0)) * .05; }
-      else { if (f.position.y) f.position.y = 0; if (!u.rig) f.rotation.z = Math.sin(now / 1900 + u.phase) * .012; }
+      } else if (!u.rig) f.rotation.z = Math.sin(now / 1900 + u.phase) * .012;
     }
     cam.position.copy(pos); cam.rotation.set(0, 0, 0, 'YXZ'); cam.rotation.order = 'YXZ'; cam.rotation.y = yaw; cam.rotation.x = pitch;
     stepMood(now); if (!galPaused) renderer.render(scene, cam); raf = requestAnimationFrame(tick);
