@@ -208,6 +208,23 @@
   .pigment span { color:var(--dim); }
   .qbox { display:flex; flex-direction:column; align-items:center; gap:8px; max-width:420px; }
   .qtext { font-family:'Instrument Serif', serif; font-size:clamp(26px,5.4vw,38px); line-height:1.12; margin:0; font-style:italic; }
+  /* the question is dealt as a playing card: red and blue backs with white curls, flipped over to reveal */
+  .qdeck { position:relative; width:min(280px, 72vw); aspect-ratio:5/7; perspective:1200px; margin:4px 0 6px; }
+  .qcard { position:absolute; inset:0; transform-style:preserve-3d; transition:transform .75s cubic-bezier(.3,.1,.2,1); }
+  .qcard.up { transform:rotateY(180deg); }
+  .qcard.out { animation: dealOut .45s cubic-bezier(.5,0,.8,.4) forwards; }
+  .qcard.in { animation: dealIn .5s cubic-bezier(.2,.7,.2,1); }
+  @keyframes dealOut { to { transform:translate(140%, -14%) rotate(18deg); opacity:0; } }
+  @keyframes dealIn { from { transform:translate(-130%, 10%) rotate(-16deg); opacity:0; } to { transform:none; opacity:1; } }
+  .qstack { transform:translate(-14px, 10px) rotate(-7deg); }
+  .qface { position:absolute; inset:0; border-radius:14px; backface-visibility:hidden; -webkit-backface-visibility:hidden; box-shadow:0 14px 30px rgba(60,20,25,.25), 0 2px 4px rgba(0,0,0,.12); }
+  .qback { background-size:cover; background-position:center; }
+  .qback.red { background-color:#c8202a; } .qback.blue { background-color:#2433a6; }
+  .qfront { transform:rotateY(180deg); background:#fbf8f2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:26px 22px; text-align:center;
+    background-image: linear-gradient(#fbf8f2, #fbf8f2), linear-gradient(135deg, #c8202a, #2433a6); background-origin:border-box; background-clip:padding-box, border-box; border:3px solid transparent; }
+  .qfront .lbl { font-size:10px; letter-spacing:.16em; color:#9a2a2f; }
+  .qfront .qtext { font-size:clamp(20px, 2.4vw, 27px) !important; line-height:1.15; color:#1a1514; }
+  .qpip { color:#c8202a; font-size:14px; }
   .qnote { font-size:11px; color:var(--dim); line-height:1.5; margin:0; max-width:340px; }
   .qbanner { position:absolute; left:12px; bottom:12px; right:12px; z-index:2; font-family:'Instrument Serif', serif; font-style:italic; font-size:18px; line-height:1.2; color:#141414; background:rgba(244,241,234,.86); padding:8px 12px; display:none; }
   .qbanner.show { display:block; }
@@ -297,9 +314,14 @@
     <div class="remixchip" id="remixChip" style="display:none"><span id="remixText"></span><button id="remixCancel">✕</button></div>
     <p class="title" id="introTitle">Say anything,<br><em>in any language.</em></p>
     <div class="qbox" id="qBox" style="display:none">
-      <div class="lbl">A question to sit with</div>
-      <p class="qtext" id="qText"></p>
-      <button class="link" id="qNext">↻ another question</button>
+      <div class="qdeck" id="qDeck">
+        <div class="qcard qstack"><div class="qface qback blue"></div></div>
+        <div class="qcard" id="qCard">
+          <div class="qface qback red"></div>
+          <div class="qface qfront"><div class="lbl">a question to sit with</div><p class="qtext" id="qText"></p><span class="qpip">✦</span></div>
+        </div>
+      </div>
+      <button class="link" id="qNext">↻ draw another card</button>
     </div>
     <p class="sub" id="introSub"></p>
     <input class="namefield" id="nameIn" hidden type="text" maxlength="40" autocomplete="off" placeholder="Your name (to sign it, optional)">
@@ -436,15 +458,15 @@
 </div>
 
 
-<script src="js/sources.js?v=92b05bdf"></script>
-<script src="js/params.js?v=92b05bdf"></script>
-<script src="js/paint.js?v=92b05bdf"></script>
-<script src="js/engine.js?v=92b05bdf"></script>
-<script src="js/audio.js?v=92b05bdf"></script>
-<script src="js/gallery.js?v=92b05bdf"></script>
+<script src="js/sources.js?v=57dd0c41"></script>
+<script src="js/params.js?v=57dd0c41"></script>
+<script src="js/paint.js?v=57dd0c41"></script>
+<script src="js/engine.js?v=57dd0c41"></script>
+<script src="js/audio.js?v=57dd0c41"></script>
+<script src="js/gallery.js?v=57dd0c41"></script>
 <script src="js/vendor/qrcode.js"></script>
 <script src="js/share-config.js"></script>
-<script src="js/share.js?v=92b05bdf"></script>
-<script src="js/ui.js?v=92b05bdf"></script>
+<script src="js/share.js?v=57dd0c41"></script>
+<script src="js/ui.js?v=57dd0c41"></script>
 </body>
 </html>

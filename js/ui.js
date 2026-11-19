@@ -206,11 +206,43 @@ function nextQuestion() {
   if (!qOrder.length) qOrder = QUESTIONS.map((_, i) => i).sort(() => Math.random() - .5);
   currentQuestion = QUESTIONS[qOrder.pop()]; showQuestion();
 }
+// white curls on a coloured back, like a fine playing-card deck (drawn once as SVG, mirrored four ways)
+const CARD_BACK = (() => {
+  let seed = 11; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const curl = (x, y, R, turn, rot) => { // a spiral that unwinds into a tail, with a dot at its heart
+    let d = '', pts = [];
+    for (let i = 0; i <= 40; i++) { const t = i / 40, a = rot + turn * t * Math.PI * 2.4, rr = R * (.18 + t * .82); pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]); }
+    const tail = pts[pts.length - 1], ta = rot + turn * Math.PI * 2.4 + turn * Math.PI / 2; pts.push([tail[0] + Math.cos(ta) * R * 1.2, tail[1] + Math.sin(ta) * R * 1.2]);
+    d = 'M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L');
+    return `<path d="${d}" fill="none" stroke="#fff" stroke-width="${(R / 5).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(R / 4).toFixed(1)}" fill="#fff"/>`;
+  };
+  let q = '';
+  for (let i = 0; i < 26; i++) q += curl(8 + r() * 42, 10 + r() * 58, 4 + r() * 7, r() < .5 ? 1 : -1, r() * 6.28);
+  for (let i = 0; i < 18; i++) q += `<circle cx="${(6 + r() * 44).toFixed(1)}" cy="${(6 + r() * 62).toFixed(1)}" r="${(.8 + r() * 1.6).toFixed(1)}" fill="#fff"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140"><rect x="4" y="4" width="92" height="132" rx="7" fill="none" stroke="#fff" stroke-width="1.4"/><rect x="7" y="7" width="86" height="126" rx="5" fill="none" stroke="#fff" stroke-width=".5"/><clipPath id="c"><rect x="8" y="8" width="84" height="124" rx="5"/></clipPath><g clip-path="url(#c)"><g id="q">${q}</g><use href="#q" transform="translate(100 0) scale(-1 1)"/><use href="#q" transform="translate(0 140) scale(1 -1)"/><use href="#q" transform="translate(100 140) scale(-1 -1)"/></g></svg>`;
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+})();
+document.querySelectorAll('.qback').forEach(el => el.style.backgroundImage = CARD_BACK);
+let cardBusy = false, cardRed = true;
+function dealCard(text) { // flip down, deal the old card away, deal a new one in, flip it up
+  const card = $('qCard'), wait = ms => new Promise(r => setTimeout(r, ms));
+  if (cardBusy) { $('qText').textContent = text; return; }
+  cardBusy = true;
+  (async () => {
+    if (card.classList.contains('up')) { card.classList.remove('up'); await wait(650); card.classList.add('out'); await wait(430); }
+    cardRed = !cardRed; card.querySelector('.qback').classList.toggle('red', cardRed); card.querySelector('.qback').classList.toggle('blue', !cardRed);
+    document.querySelector('.qstack .qback').classList.toggle('red', !cardRed); document.querySelector('.qstack .qback').classList.toggle('blue', cardRed);
+    $('qText').textContent = text;
+    card.classList.remove('out'); card.classList.add('in'); await wait(520); card.classList.remove('in');
+    await wait(180); card.classList.add('up'); await wait(760); cardBusy = false;
+    if ($('qText').textContent !== currentQuestion) dealCard(currentQuestion);
+  })();
+}
 function showQuestion() {
   requestAnimationFrame(fitIntro);
   const on = P.askQuestion && currentQuestion;
   $('qBox').style.display = on ? '' : 'none';
-  $('qText').textContent = currentQuestion;
+  if ($('qText').textContent !== currentQuestion) dealCard(currentQuestion);
   $('introTitle').style.display = on ? 'none' : ''; $('intro').classList.toggle('qon', !!on);
   $('qBanner').textContent = on ? currentQuestion : '';
 }
