@@ -98,10 +98,47 @@ async function openGallery(focusNewest) {
   const wallMat = new T.MeshStandardMaterial({ color: '#ffffff', emissive: '#efece6', emissiveIntensity: .45, roughness: .95 });
   const floorMat = new T.MeshStandardMaterial({ color: '#d4cfc6', roughness: .28, metalness: .04 });
   const floor = new T.Mesh(new T.PlaneGeometry(G.W, G.L + 10), floorMat); floor.rotation.x = -Math.PI / 2; floor.position.z = -G.L / 2 + 5; floor.receiveShadow = true; scene.add(floor);
-  // polished concrete: faint seams
-  const seams = new T.Group(); const seamMat = new T.MeshBasicMaterial({ color: '#a29d93' });
-  for (let z = 4; z > -G.L; z -= 4) { const m = new T.Mesh(new T.PlaneGeometry(G.W, .012), seamMat); m.rotation.x = -Math.PI / 2; m.position.set(0, .002, z); seams.add(m); }
-  scene.add(seams);
+  // polished concrete: mottled, flecked, no seams
+  {
+    const fc = mk(1024, 1024), fg = fc.getContext('2d');
+    fg.fillStyle = '#dcd7cf'; fg.fillRect(0, 0, 1024, 1024);
+    for (let i = 0; i < 90; i++) { // soft clouds of darker / lighter trowelling
+      const x = Math.random() * 1024, y = Math.random() * 1024, r = 60 + Math.random() * 220, dark = Math.random() < .55;
+      const gr = fg.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, dark ? 'rgba(120,112,100,.045)' : 'rgba(255,252,246,.06)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      fg.fillStyle = gr; for (const dx of [-1024, 0, 1024]) for (const dy of [-1024, 0, 1024]) { fg.save(); fg.translate(dx, dy); fg.fillRect(x - r, y - r, r * 2, r * 2); fg.restore(); }
+    }
+    for (let i = 0; i < 9000; i++) { // aggregate flecks
+      const v = Math.random() < .5 ? 90 + Math.random() * 60 : 230 + Math.random() * 25;
+      fg.fillStyle = `rgba(${v},${v - 4},${v - 10},${.25 + Math.random() * .35})`; const r = Math.random() * 1.6 + .3;
+      fg.fillRect(Math.random() * 1024, Math.random() * 1024, r, r);
+    }
+    const ftex = new T.CanvasTexture(fc); ftex.colorSpace = T.SRGBColorSpace; ftex.wrapS = ftex.wrapT = T.RepeatWrapping; ftex.repeat.set(G.W / 6, (G.L + 10) / 6); ftex.anisotropy = 8;
+    const rtex = new T.CanvasTexture(fc); rtex.wrapS = rtex.wrapT = T.RepeatWrapping; rtex.repeat.copy(ftex.repeat);
+    floorMat.map = ftex; floorMat.roughnessMap = rtex; floorMat.color.set('#ffffff'); floorMat.roughness = .55; floorMat.needsUpdate = true;
+  }
+
+  // ---------- the centrepiece: one organic plaster form on a low plinth, mid-hall ----------
+  {
+    const cz = -Math.min(G.L * .42, 18);
+    const geo = new T.SphereGeometry(1, 160, 120), pa = geo.attributes.position, v = new T.Vector3();
+    for (let i = 0; i < pa.count; i++) {
+      v.fromBufferAttribute(pa, i);
+      const n = Math.sin(v.x * 2.1 + v.y * 1.3) * .16 + Math.sin(v.y * 3.2 - v.z * 1.7) * .09 + Math.sin(v.z * 2.6 + v.x * .9 + v.y * 1.1) * .12;
+      const pinch = 1 - .32 * Math.exp(-Math.pow(v.y * 2.2 - .2, 2)); // a waist
+      v.multiplyScalar(1 + n); v.x *= pinch * 1.05; v.z *= pinch * .8; v.y *= 1.55;
+      const tw = v.y * .45, cx = v.x * Math.cos(tw) - v.z * Math.sin(tw), czz = v.x * Math.sin(tw) + v.z * Math.cos(tw); // a slow twist
+      pa.setXYZ(i, cx, v.y, czz);
+    }
+    geo.computeVertexNormals();
+    const plaster = new T.MeshStandardMaterial({ color: '#f1ede6', roughness: .62, metalness: 0 });
+    const form = new T.Mesh(geo, plaster); form.castShadow = form.receiveShadow = true;
+    const ring = new T.Mesh(new T.TorusGeometry(.62, .17, 48, 140), plaster); ring.castShadow = ring.receiveShadow = true;
+    ring.position.set(.95, .9, .25); ring.rotation.set(.5, .9, .3);
+    const plinth = new T.Mesh(new T.BoxGeometry(3, .32, 3), new T.MeshStandardMaterial({ color: '#e8e4dc', roughness: .9 }));
+    plinth.position.y = .16; plinth.castShadow = plinth.receiveShadow = true;
+    const sculpt = new T.Group(); form.position.y = .32 + 1.65; ring.position.y += .32 + 1.65;
+    sculpt.add(plinth, form, ring); sculpt.position.set(0, 0, cz); sculpt.rotation.y = .6; scene.add(sculpt);
+  }
   const wall = (w, h, x, y, z, ry) => { const m = new T.Mesh(new T.PlaneGeometry(w, h), wallMat); m.position.set(x, y, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m); return m; };
   wall(G.L + 10, G.H, -G.W / 2, G.H / 2, -G.L / 2 + 5, Math.PI / 2);
   wall(G.L + 10, G.H, G.W / 2, G.H / 2, -G.L / 2 + 5, -Math.PI / 2);
