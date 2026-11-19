@@ -196,8 +196,8 @@ async function openGallery(focusNewest) {
     const halo = new T.Mesh(new T.RingGeometry(.24, .29, 64), new T.MeshBasicMaterial({ color: '#c0262d', transparent: true, opacity: .8 }));
     const arrow = mk(256, 256), ag = arrow.getContext('2d'); ag.fillStyle = '#f4f1ea'; ag.font = '600 170px "IBM Plex Mono", monospace'; ag.textAlign = 'center'; ag.textBaseline = 'middle'; ag.fillText('↗', 128, 136);
     const arrowM = new T.Mesh(new T.PlaneGeometry(.3, .3), new T.MeshBasicMaterial({ map: new T.CanvasTexture(arrow), transparent: true })); arrowM.position.z = .005;
-    const lab = mk(1024, 160), lg = lab.getContext('2d'); lg.fillStyle = 'rgba(244,241,234,.92)'; lg.fillRect(0, 0, 1024, 160);
-    lg.fillStyle = '#151412'; lg.font = '500 68px "IBM Plex Mono", monospace'; lg.textBaseline = 'middle'; lg.fillText('rienespecial.com', 34, 82);
+    const lab = mk(1024, 160), lg = lab.getContext('2d'); lg.fillStyle = '#151412'; lg.fillRect(0, 0, 1024, 160);
+    lg.fillStyle = '#f4f1ea'; lg.font = '500 68px "IBM Plex Mono", monospace'; lg.textBaseline = 'middle'; lg.fillText('rienespecial.com  ↗', 34, 82);
     const lt = new T.CanvasTexture(lab); lt.colorSpace = T.SRGBColorSpace;
     const label = new T.Mesh(new T.PlaneGeometry(1.6, .25), new T.MeshBasicMaterial({ map: lt })); label.position.set(1.18, 0, 0);
     spot.add(disc, halo, arrowM, label); scene.add(spot);

@@ -122,6 +122,13 @@
   .after.show { display:flex; }
   .after button { min-width:0; flex:1 1 30%; padding:12px 10px; font-size:12px; }
   /* studio */
+  .panel, .galcard { position:relative; }
+  .galcard { position:absolute; }
+  .xclose { position:absolute; top:6px; right:6px; z-index:2; width:38px; height:38px; min-width:0; padding:0; border:none; background:transparent; color:#151412; font-family:'IBM Plex Mono', monospace; font-size:30px !important; font-weight:300; line-height:1; letter-spacing:0; cursor:pointer; }
+  .xclose:hover { background:rgba(0,0,0,.07); }
+  .panel > .xclose + div { padding-right:44px; }
+  .galcard { padding-top:46px !important; }
+  .galbar .galx { font-size:24px !important; line-height:1; padding:4px 13px 6px; }
   .studio, .archive { position:fixed; inset:0; background:rgba(20,20,20,.55); display:none; align-items:flex-start; justify-content:center; z-index:20; overflow:auto; padding:20px 12px 60px; }
   .studio.show, .archive.show { display:flex; }
   .panel { background:var(--paper); width:100%; max-width:640px; padding:22px 20px 26px; display:flex; flex-direction:column; gap:14px; box-shadow:0 20px 60px rgba(0,0,0,.35); }
@@ -338,6 +345,7 @@
 
 <div class="studio" id="studio">
   <div class="panel">
+    <button class="xclose" id="closeStudio" aria-label="Close">×</button>
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2>Studio</h2><span class="lbl">only for Aimi · S = studio · W = archive</span></div>
     <div><div class="lbl" style="margin-bottom:8px">Presets</div><div class="chips" id="studioPresets"></div></div>
     <div id="studioSections"></div>
@@ -362,28 +370,30 @@
         <div class="row" style="justify-content:flex-start"><button class="ghost" id="openWall">Open the archive (download all / delete here)</button></div>
       </div>
     </details>
-    <div class="row" style="justify-content:flex-start"><button id="saveDefaults">Save as defaults</button><button class="ghost" id="resetDefaults">Factory reset</button><button class="ghost" id="closeStudio">Close</button></div>
+    <div class="row" style="justify-content:flex-start"><button id="saveDefaults">Save as defaults</button><button class="ghost" id="resetDefaults">Factory reset</button></div>
     <p class="note" id="studioNote"></p>
   </div>
 </div>
 
 <div class="gallery" id="gallery">
   <div id="galCanvas"></div>
-  <div class="galbar"><div><div class="galtitle">The Gallery</div><div class="lbl" id="galCount"></div></div><span style="flex:1"></span><div class="galmood" id="galMood"><button data-l="day" class="on">Day</button><button data-l="dusk">Dusk</button><button data-l="party">Party</button><button data-l="disco">Disco</button></div><button class="ghost" id="galReset">Eye level</button><button class="ghost" id="galList">List view</button><button class="ghost" id="galClose">Close</button></div>
+  <div class="galbar"><div><div class="galtitle">The Gallery</div><div class="lbl" id="galCount"></div></div><span style="flex:1"></span><div class="galmood" id="galMood"><button data-l="day" class="on">Day</button><button data-l="dusk">Dusk</button><button data-l="party">Party</button><button data-l="disco">Disco</button></div><button class="ghost" id="galReset">Eye level</button><button class="ghost" id="galList">List view</button><button class="ghost galx" id="galClose" aria-label="Close">×</button></div>
   <div class="galnote" id="galNote"></div>
   <div class="galwalk"><button id="galLeft" aria-label="turn left">↺</button><button id="galFwd" aria-label="walk forward">↑</button><button id="galBack" aria-label="walk back">↓</button><button id="galRight" aria-label="turn right">↻</button></div>
   <div class="galtip" id="galTip"></div>
   <div class="relief" id="relief"><div id="reliefCanvas"></div><div class="reliefbar"><button id="reliefBack">← Back to the gallery</button><span class="lbl" id="reliefNote">drag to turn · scroll to move closer</span></div></div>
   <div class="galcard" id="galCard">
+    <button class="xclose" id="galCardClose" aria-label="Close">×</button>
     <img id="galImg" alt="">
     <h3 id="galTitle"></h3>
     <p class="note" id="galMeta" style="white-space:pre-line"></p>
-    <div class="row" style="justify-content:flex-start"><button id="gal3d">View in 3D</button><button class="ghost" id="galRemix">Remix this</button><button class="ghost" id="galDownload">Download image</button><button class="ghost" id="galVideo">Download video</button><button class="ghost danger" id="galDelete">Delete</button><button class="ghost" id="galCardClose">Close</button></div>
+    <div class="row" style="justify-content:flex-start"><button id="gal3d">View in 3D</button><button class="ghost" id="galRemix">Remix this</button><button class="ghost" id="galDownload">Download image</button><button class="ghost" id="galVideo">Download video</button><button class="ghost danger" id="galDelete">Delete</button></div>
   </div>
 </div>
 
 <div class="archive" id="archive">
   <div class="panel">
+    <button class="xclose" id="archClose" aria-label="Close">×</button>
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2>Archive</h2><span class="lbl" id="archMeta"></span></div>
     <div id="archList">
       <div class="row" style="justify-content:flex-start;margin-bottom:12px"><button class="ghost seg" id="archTonight">Tonight</button><button class="ghost seg" id="archAll">Everything</button><button id="archWalk">Walk the gallery →</button></div>
@@ -399,17 +409,17 @@
         <div class="row" style="justify-content:flex-start"><button class="ghost" id="detBack">← All pieces</button><button class="ghost" id="detDelete">Delete</button></div>
       </div>
     </div>
-    <div class="row" style="justify-content:flex-start"><button class="ghost" id="archClose">Close</button><span id="archAdmin" style="display:none"><button class="ghost" id="archZip">Download everything (.zip)</button> <button class="ghost" id="archClear">Delete the whole archive</button></span></div>
+    <div class="row" style="justify-content:flex-start"><span id="archAdmin" style="display:none"><button class="ghost" id="archZip">Download everything (.zip)</button> <button class="ghost" id="archClear">Delete the whole archive</button></span></div>
   </div>
 </div>
 
 
-<script src="js/sources.js?v=6301fa8b"></script>
-<script src="js/params.js?v=6301fa8b"></script>
-<script src="js/paint.js?v=6301fa8b"></script>
-<script src="js/engine.js?v=6301fa8b"></script>
-<script src="js/audio.js?v=6301fa8b"></script>
-<script src="js/gallery.js?v=6301fa8b"></script>
-<script src="js/ui.js?v=6301fa8b"></script>
+<script src="js/sources.js?v=bd01b7c5"></script>
+<script src="js/params.js?v=bd01b7c5"></script>
+<script src="js/paint.js?v=bd01b7c5"></script>
+<script src="js/engine.js?v=bd01b7c5"></script>
+<script src="js/audio.js?v=bd01b7c5"></script>
+<script src="js/gallery.js?v=bd01b7c5"></script>
+<script src="js/ui.js?v=bd01b7c5"></script>
 </body>
 </html>
