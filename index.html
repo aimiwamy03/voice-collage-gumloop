@@ -135,6 +135,16 @@
   .takehome span { font:11px/1 'IBM Plex Mono', monospace; letter-spacing:.1em; text-transform:uppercase; color:#151412; white-space:nowrap; }
   @media (max-width: 980px) { .takehome { left:auto; right:0; bottom:auto; top:calc(100% + 10px); align-items:flex-end; flex-direction:column-reverse; } }
   @keyframes takeIn { from { opacity:0; transform:translateY(12px) scale(.96); } to { opacity:1; transform:none; } }
+  /* simple by default: one Surprise me; the full controls live behind Customize */
+  body:not(.customizing) #controls, body:not(.customizing) .side.left .lockednote { display:none !important; }
+  body.customizing #simpleSurprise { display:none; }
+  .surpriseBig { width:100%; text-align:left; padding:18px 18px 16px; font-size:16px; letter-spacing:.06em; display:flex; flex-direction:column; gap:6px; background:#151412; color:#f4f1ea; border:1px solid #151412; cursor:pointer; }
+  .surpriseBig small { font-size:12px; letter-spacing:.02em; text-transform:none; opacity:.7; }
+  .surpriseBig:hover { background:#000; }
+  .surpriseBig.spin { animation: spinPop .5s ease; }
+  @keyframes spinPop { 30% { transform:scale(.97) rotate(-1deg); } 70% { transform:scale(1.02) rotate(.6deg); } }
+  .customizeBtn { margin-top:14px; background:transparent; border:none; padding:6px 0; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); cursor:pointer; text-align:left; }
+  .customizeBtn:hover { color:var(--ink); }
   .xclose { position:absolute; top:6px; right:6px; z-index:2; width:38px; height:38px; min-width:0; padding:0; border:none; background:transparent; color:#151412; font-family:'IBM Plex Mono', monospace; font-size:30px !important; font-weight:300; line-height:1; letter-spacing:0; cursor:pointer; }
   .xclose:hover { background:rgba(0,0,0,.07); }
   .panel > .xclose + div { padding-right:44px; }
@@ -263,12 +273,12 @@
 
 <main class="layout">
 <aside class="side left">
-<div class="sidehead lbl">Controls</div>
-<p class="note lockednote" id="lockedNote">Controls rest while someone is speaking — they come back when the piece is done.</p>
+<div class="simpleSurprise" id="simpleSurprise"><button class="surpriseBig" id="surpriseBig">Surprise me<small>a new look, chosen at random</small></button></div>
 <div class="controls" id="controls">
   <div><div class="lbl" style="margin-bottom:8px">Pick a mood</div><div class="chips" id="presetChips"></div></div>
   <div id="guestLevers"></div>
 </div>
+<button class="customizeBtn" id="customizeBtn">⚙ Customize</button>
 </aside>
 <section class="center">
 <div class="stage" id="stage">
@@ -426,15 +436,15 @@
 </div>
 
 
-<script src="js/sources.js?v=fe0f19bf"></script>
-<script src="js/params.js?v=fe0f19bf"></script>
-<script src="js/paint.js?v=fe0f19bf"></script>
-<script src="js/engine.js?v=fe0f19bf"></script>
-<script src="js/audio.js?v=fe0f19bf"></script>
-<script src="js/gallery.js?v=fe0f19bf"></script>
+<script src="js/sources.js?v=ef5ad6ee"></script>
+<script src="js/params.js?v=ef5ad6ee"></script>
+<script src="js/paint.js?v=ef5ad6ee"></script>
+<script src="js/engine.js?v=ef5ad6ee"></script>
+<script src="js/audio.js?v=ef5ad6ee"></script>
+<script src="js/gallery.js?v=ef5ad6ee"></script>
 <script src="js/vendor/qrcode.js"></script>
 <script src="js/share-config.js"></script>
-<script src="js/share.js?v=fe0f19bf"></script>
-<script src="js/ui.js?v=fe0f19bf"></script>
+<script src="js/share.js?v=ef5ad6ee"></script>
+<script src="js/ui.js?v=ef5ad6ee"></script>
 </body>
 </html>

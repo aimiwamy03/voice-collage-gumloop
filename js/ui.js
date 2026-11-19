@@ -613,3 +613,12 @@ function fitIntro() {
 new ResizeObserver(() => fitIntro()).observe($('intro'));
 window.addEventListener('resize', fitIntro);
 ['qNext', 'keyToggle', 'modeCollage', 'modePaint'].forEach(id => $(id) && $(id).addEventListener('click', () => requestAnimationFrame(fitIntro)));
+
+// ---------- simple mode: one Surprise me; the full controls open with Customize (remembered on this device) ----------
+(function () {
+  let on = false; try { on = localStorage.getItem('vc_customizing') === '1'; } catch (e) {}
+  const set = v => { on = v; document.body.classList.toggle('customizing', v); $('customizeBtn').textContent = v ? '✕ Hide settings' : '⚙ Customize'; try { localStorage.setItem('vc_customizing', v ? '1' : '0'); } catch (e) {} };
+  set(on);
+  $('customizeBtn').onclick = () => set(!on);
+  $('surpriseBig').onclick = () => { if (state !== 'idle') return; surprise(); const b = $('surpriseBig'); b.classList.remove('spin'); void b.offsetWidth; b.classList.add('spin'); };
+})();
