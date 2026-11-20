@@ -144,6 +144,13 @@
   .surpriseBig:hover { background:#000; }
   .surpriseBig.spin { animation: spinPop .5s ease; }
   @keyframes spinPop { 30% { transform:scale(.97) rotate(-1deg); } 70% { transform:scale(1.02) rotate(.6deg); } }
+  .howto { list-style:none; counter-reset:step; padding:0; margin:0 0 6px; display:flex; flex-direction:column; gap:22px; }
+  .howto li { counter-increment:step; display:grid; grid-template-columns:52px 1fr; column-gap:14px; align-items:start; }
+  .howto li::before { content:counter(step); grid-row:span 2; font:italic 54px/0.9 'Instrument Serif', Georgia, serif; color:#1a1514; }
+  .howto b { font:400 24px/1.1 'Instrument Serif', Georgia, serif; font-weight:400; }
+  .howto span { font-size:12.5px; line-height:1.5; color:#3d3532; margin-top:4px; }
+  body.customizing .howto { display:none; }
+  body.immersive .howto { display:none; }
   .customizeBtn { margin-top:14px; background:transparent; border:none; padding:6px 0; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); cursor:pointer; text-align:left; }
   .customizeBtn:hover { color:var(--ink); }
   .xclose { position:absolute; top:6px; right:6px; z-index:2; width:38px; height:38px; min-width:0; padding:0; border:none; background:transparent; color:#151412; font-family:'IBM Plex Mono', monospace; font-size:30px !important; font-weight:300; line-height:1; letter-spacing:0; cursor:pointer; }
@@ -292,6 +299,11 @@
 
 <main class="layout">
 <aside class="side left">
+<ol class="howto" id="howto">
+  <li><b>Draw a card.</b><span>Read the question. Take your time — nothing is recording yet.</span></li>
+  <li><b>Speak for 30 seconds.</b><span>Press “I’m ready”, then begin. Any language. Your voice paints as you talk.</span></li>
+  <li><b>Keep it.</b><span>Sign your piece, scan the code to take it home, and find yourself in the gallery.</span></li>
+</ol>
 <div class="simpleSurprise" id="simpleSurprise"><button class="surpriseBig" id="surpriseBig">Surprise me<small>a new look, chosen at random</small></button></div>
 <div class="controls" id="controls">
   <div><div class="lbl" style="margin-bottom:8px">Pick a mood</div><div class="chips" id="presetChips"></div></div>
