@@ -80,7 +80,7 @@
   .countdown.show { display:block; } .countdown.low { background:#c0262d; }
   .countdown { transition:all .35s ease; background:rgba(20,20,20,.55); font-size:14px; padding:5px 10px; }
   /* the last ten seconds: a big numeral inside a ring that drains */
-  .countdown.final { top:16px; right:16px; width:86px; height:86px; padding:0; border-radius:50%; display:grid; place-items:center; font:italic 44px/1 'Instrument Serif', Georgia, serif; letter-spacing:0;
+  .countdown.final { clip-path:circle(50%); top:16px; right:16px; width:86px; height:86px; padding:0; border-radius:50%; display:grid; place-items:center; font:italic 44px/1 'Instrument Serif', Georgia, serif; letter-spacing:0;
     background: radial-gradient(closest-side, rgba(18,18,18,.82) 86%, transparent 88% 100%), conic-gradient(#f4f1ea calc(var(--p, 1) * 360deg), rgba(244,241,234,.18) 0); }
   .countdown.final.low { background: radial-gradient(closest-side, rgba(192,38,45,.9) 86%, transparent 88% 100%), conic-gradient(#f4f1ea calc(var(--p, 1) * 360deg), rgba(244,241,234,.18) 0); }
   .countdown.tick { animation: cdTick .5s ease; }
@@ -275,14 +275,15 @@
   body.immersive .stage { width:min(calc(100vw - 40px), calc((100vh - 40px) * var(--ar, .8))); }
   .imx { position:fixed; z-index:30; font:11px/1 ui-monospace, Menlo, monospace; letter-spacing:.12em; text-transform:uppercase; background:transparent; border:1px solid rgba(0,0,0,.18); color:rgba(0,0,0,.45); padding:9px 12px; cursor:pointer; opacity:0; pointer-events:none; transition:opacity .6s, color .2s, border-color .2s; }
   .imx:hover { color:#000; border-color:#000; }
-  #imFinish { right:18px; bottom:18px; }
+  #imFinish { right:18px; bottom:18px; z-index:60; font-size:13px; padding:14px 20px; color:#f4f1ea; background:#151412; border-color:#151412; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+  #imFinish:hover { background:#000; color:#fff; }
   #zoomOut { left:50%; bottom:max(18px, env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:60; font-size:13px; padding:14px 22px; color:#f4f1ea; background:#151412; border-color:#151412; box-shadow:0 8px 24px rgba(0,0,0,.25); }
   #zoomOut:hover { color:#fff; background:#000; }
   body.immersive.im-done #zoomOut { animation: zoPulse 2.4s ease-in-out 2.2s 3; }
   @keyframes zoPulse { 0%,100% { box-shadow:0 8px 24px rgba(0,0,0,.25), 0 0 0 0 rgba(21,20,18,.35); } 50% { box-shadow:0 8px 24px rgba(0,0,0,.25), 0 0 0 10px rgba(21,20,18,0); } }
   /* leave room under the canvas for the button while immersed */
   body.immersive .stage { width:min(calc(100vw - 40px), calc((100vh - 110px) * var(--ar, .8))); }
-  body.immersive.im-live #imFinish { opacity:.55; pointer-events:auto; }
+  body.immersive.im-live #imFinish { opacity:1; pointer-events:auto; }
   body.immersive.im-done #zoomOut { opacity:1; pointer-events:auto; }
 </style>
 </head>
@@ -385,7 +386,7 @@
 </aside>
 </main>
 <a id="betaDot" href="duet/" title="beta" aria-label="beta">◐</a>
-<button class="imx" id="imFinish" title="or press Enter">finished ⏎</button>
+<button class="imx" id="imFinish" title="or press Enter">End early ⏎</button>
 <button class="imx" id="zoomOut" title="or scroll out / press Esc">step back ↘</button>
 
 <div class="studio" id="studio">
