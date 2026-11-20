@@ -495,6 +495,11 @@ async function startRemix(w) {
   $('archive').classList.remove('show');
   resetToIdle(false); showStep(1);
   P = { ...JSON.parse(JSON.stringify(DEFAULTS)), ...JSON.parse(JSON.stringify(w.params || {})), autoSculpture: false };
+  if (!document.body.classList.contains('customizing')) { // a remix keeps the original's format (shape + collage/paint) but rolls new settings
+    const keep = { shape: P.shape, mode: P.mode };
+    activePreset = null; applyPreset(keep.mode === 'paint' ? 'Oil sketch' : 'Ransom note'); surprise();
+    Object.assign(P, keep, { autoSculpture: false });
+  }
   applyShape(); syncAll(); syncMode(); markPreset(null);
   drawRemixBase(); render();
   showRemixChip();
