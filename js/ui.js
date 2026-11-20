@@ -654,3 +654,13 @@ window.addEventListener('resize', fitIntro);
   $('customizeBtn').onclick = () => set(!on);
   $('surpriseBig').onclick = () => { if (state !== 'idle') return; surprise(); const b = $('surpriseBig'); b.classList.remove('spin'); void b.offsetWidth; b.classList.add('spin'); };
 })();
+
+// ---------- every new piece is a fresh, fully random combination: collage or paint, and every lever ----------
+function randomizeAll() {
+  if (document.body.classList.contains('customizing')) return; // hands-on mode: keep the artist's settings
+  const m = Math.random() < .5 ? 'collage' : 'paint';
+  activePreset = null; applyPreset(m === 'paint' ? 'Oil sketch' : 'Ransom note');
+  surprise(); varyShape(); applyShape(); syncAll(); syncMode();
+}
+{ const again = $('againBtn').onclick; $('againBtn').onclick = e => { again(e); randomizeAll(); }; }
+randomizeAll();

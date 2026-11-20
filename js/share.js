@@ -30,7 +30,7 @@ async function shareFinished(blob, no, name, fresh) {
     const pub = await uploadPiece(blob); if (!pub) return;
     drawQR($('takeQR'), takeLink());
     $('takeNote').textContent = 'scan to take it home'; box.classList.add('show');
-  } catch (e) { console.warn(e); $('takeNote').textContent = 'offline — can’t make a link'; box.classList.add('show'); }
+  } catch (e) { console.warn(e); if (!fresh) return; /* an update failed: keep the first, working link */ $('takeNote').textContent = 'offline — can’t make a link'; box.classList.add('show'); }
 }
 function shareChanged(blob, no, name) { clearTimeout(shareTimer); shareTimer = setTimeout(() => shareFinished(blob, no, name, false), 900); }
 function shareHide() { $('takeHome').classList.remove('show', 'open'); sharePath = null; }
